@@ -41,7 +41,7 @@ class MetaIndex
     @index = index
     @hooks = hooks
     @query = nil # we always have (at most) one active query
-    @debug = false
+    @debug = true
     reset_timers!
   end
 

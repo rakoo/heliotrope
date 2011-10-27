@@ -59,22 +59,18 @@ class HeliotropeClient
   def size; get_json("size")["size"] end
 
   def prune_labels!
- 		puts "prune labels"
 		post_json("labels/prune")["labels"] 
 	end
 
   def set_labels! thread_id, labels
-		puts "set labels #{labels} for thread #{thread_id}"
     post_json "thread/#{thread_id}/labels", :labels => labels.to_json
   end
 
   def set_state! message_id, state
-		puts "set state #{state} for message #{message}"
     post_json "message/#{message_id}/state", :state => state.to_json
   end
 
   def set_thread_state! thread_id, state
-		puts "set state #{state} for thread_id #{thread_id}"
     post_json "thread/#{thread_id}/state", :state => state.to_json
   end
 
