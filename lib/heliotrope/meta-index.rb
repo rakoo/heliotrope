@@ -3,6 +3,7 @@
 require 'whistlepig'
 require 'leveldb'
 require 'set'
+require 'json'
 
 class Array
   def ordered_uniq
@@ -322,8 +323,18 @@ private
 		subject = hash.fetch :subject
 		# the logfile should already exist
 		logfile = File.open("logfile.txt","a")
-		(new_mstate - old_mstate).each {|s| logfile.puts "[#{Time.now}] added state #{s} to message #{docid} : #{subject}"}
-		(old_mstate - new_mstate).each {|s| logfile.puts "[#{Time.now}] removed state #{s} from message #{docid} : #{subject}"}
+		states_to_add = Array.new
+		states_to_remove = Array.new
+		(old_mstate - new_mstate).each { |l| states_to_remove << l }
+		(new_mstate - old_mstate ).each { |l| states_to_add << l}
+		string =  JSON.generate [
+			:message_id => docid,
+			:subject => subject,
+			:states_to_add => states_to_add,
+			:states_to_remove => states_to_remove,
+			:date => Time.now
+		]
+		logfile.puts string
 		logfile.close
 
     [changed, new_mstate]
@@ -434,8 +445,18 @@ private
 			hash = load_hash key
 			subject = hash.fetch :subject
 			logfile = File.open("logfile.txt","a")
-			(oldlabels - labels).each { |l| logfile.puts "[#{Time.now}] removed label ~#{l} from #{docid} : #{subject}" }
-			(labels - oldlabels ).each { |l| logfile.puts "[#{Time.now}] added label ~#{l} to #{docid} : #{subject}" }
+			labels_to_add = Array.new
+			labels_to_remove = Array.new
+			(oldlabels - labels).each { |l| labels_to_remove << l }
+			(labels - oldlabels ).each { |l| labels_to_add << l}
+			string =  JSON.generate [
+				:message_id => docid,
+				:subject => subject,
+			 	:labels_to_add => labels_to_add,
+			 	:labels_to_remove => labels_to_remove,
+				:date => Time.now
+			]
+			logfile.puts string 
 			logfile.close
 
     end

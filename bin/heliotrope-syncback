@@ -1,0 +1,25 @@
+#!/usr/bin/env ruby
+# encoding: UTF-8
+
+require 'heliotrope-client'
+require 'json'
+#require 'rubygems'
+
+hc = HeliotropeClient.new "http://localhost:8042"
+
+if File.exists? "logfile.txt"
+	logfile = File.open("logfile.txt","r+")
+else
+	logfile = File.new("logfile.txt","r+")
+end
+puts "-- Reading operations on #{Time.now}"
+
+logfile.each {|line| print line}
+
+
+
+
+
+logfile.close 
+
+
