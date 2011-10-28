@@ -2,3 +2,4 @@
 .*.swo
 mailstore/
 tags
+logfile.txt

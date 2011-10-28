@@ -43,6 +43,15 @@ class MetaIndex
     @query = nil # we always have (at most) one active query
     @debug = true
     reset_timers!
+
+		if File.exists? "logfile.txt"
+			logfile = File.open("logfile.txt","a")
+		else
+			logfile = File.new("logfile.txt","a")
+		end
+		logfile.puts "-- Logging operations on #{Time.now}"
+		logfile.close 
+
   end
 
   def close
@@ -172,7 +181,6 @@ class MetaIndex
     old_tlabels = load_set key
     new_tlabels = (old_tlabels & MESSAGE_STATE) + labels
     write_set key, new_tlabels
-
     threadinfo = load_hash "thread/#{threadid}"
     write_thread_message_labels! threadinfo[:structure], new_tlabels
 
@@ -308,6 +316,16 @@ private
 
     changed = new_mstate != old_mstate
     write_set key, new_mstate if changed
+		
+		key = "doc/#{docid}"
+		hash = load_hash key
+		subject = hash.fetch :subject
+		# the logfile should already exist
+		logfile = File.open("logfile.txt","a")
+		(new_mstate - old_mstate).each {|s| logfile.puts "[#{Time.now}] added state #{s} to message #{docid} : #{subject}"}
+		(old_mstate - new_mstate).each {|s| logfile.puts "[#{Time.now}] removed state #{s} from message #{docid} : #{subject}"}
+		logfile.close
+
     [changed, new_mstate]
   end
 
@@ -410,6 +428,16 @@ private
         puts "; adding ~#{l} to #{docid}" if @debug
         @index.add_label docid, l
       end
+
+			# the logfile should already exist
+			key = "doc/#{docid}"
+			hash = load_hash key
+			subject = hash.fetch :subject
+			logfile = File.open("logfile.txt","a")
+			(oldlabels - labels).each { |l| logfile.puts "[#{Time.now}] removed label ~#{l} from #{docid} : #{subject}" }
+			(labels - oldlabels ).each { |l| logfile.puts "[#{Time.now}] added label ~#{l} to #{docid} : #{subject}" }
+			logfile.close
+
     end
   end
 
