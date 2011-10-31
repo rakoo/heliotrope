@@ -3,9 +3,14 @@
 
 require 'heliotrope-client'
 require 'json'
+require 'net/imap'
 #require 'rubygems'
 
-hc = HeliotropeClient.new "http://localhost:8042"
+module HeliotropeSyncback
+
+
+
+#hc = HeliotropeClient.new "http://localhost:8042"
 
 if File.exists? "logfile.txt"
 	logfile = File.open("logfile.txt","r+")
@@ -14,12 +19,64 @@ else
 end
 puts "-- Reading operations on #{Time.now}"
 
-logfile.each {|line| print line}
+puts "-- connecting to GMail"
+imap = Net::IMAP.new("imap.gmail.com","993",true)
+imap.login("salutlesamis.coucou@gmail.com", "coucoupassword")
+#imap.select('[Gmail]/All Mail') #useless
+puts "-- connected to GMail" 
 
+logfile.each do |line| 
+	hash = JSON.parse line
+	subject = hash["subject"]
+	labels_to_add = Array.new(hash["labels_to_add"]) 
+	labels_to_remove = Array.new(hash["labels_to_remove"] )
+	puts "-- Work on [#{subject}]"
+	
+# add label to thread
+	if labels_to_add.size == 1
+		if not imap.list('', labels_to_add.first)
+			puts "	create label #{labels_to_add.first} on remote"
+		  imap.create(labels_to_add.first)
+		end
+		imap.select('[Gmail]/All Mail') 
+		imap.search(["SUBJECT", subject]).each do |message_id|
+			puts "	add label #{labels_to_add.first} on message #{message_id}"
+			imap.copy message_id, labels_to_add.first
+		end
+	end
 
+#add state to thread
+	if labels_to_add.size == 1
+		if not imap.list('', labels_to_add.first)
+			puts "	create label #{labels_to_add.first} on remote"
+		  imap.create(labels_to_add.first)
+		end
+		imap.select('[Gmail]/All Mail') 
+		imap.search(["SUBJECT", subject]).each do |message_id|
+			puts "	add label #{labels_to_add.first} on message #{message_id}"
+			imap.copy message_id, labels_to_add.first
+		end
+	end
 
+# remove label from thread
+	if labels_to_remove.size == 1
+		if not imap.list('', labels_to_remove.first)
+			puts "error in thread : label #{labels_to_remove.first} doesn't exist"
+		end
+		imap.select labels_to_remove.first
+		imap.search(["SUBJECT", subject]).each do |message_id|
+			puts "	delete label #{labels_to_remove.first} on message #{message_id}"
+			imap.store message_id, "+FLAGS", [:Deleted]
+		end
+		imap.expunge
+	end
 
+end
+
+imap.logout
+imap.disconnect
+puts "-- disconnected from GMail"
 
 logfile.close 
 
-
+end
