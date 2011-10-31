@@ -50,7 +50,8 @@ class MetaIndex
 		else
 			logfile = File.new("logfile.txt","a")
 		end
-		logfile.puts "-- Logging operations on #{Time.now}"
+# Don't puts this, because it's not in a json format
+#logfile.puts "-- Logging operations on #{Time.now}"
 		logfile.close 
 
   end
@@ -327,13 +328,14 @@ private
 		states_to_remove = Array.new
 		(old_mstate - new_mstate).each { |l| states_to_remove << l }
 		(new_mstate - old_mstate ).each { |l| states_to_add << l}
-		string =  JSON.generate [
+		data = {
 			:message_id => docid,
 			:subject => subject,
 			:states_to_add => states_to_add,
 			:states_to_remove => states_to_remove,
 			:date => Time.now
-		]
+		}
+		string =  JSON.generate data
 		logfile.puts string
 		logfile.close
 
@@ -449,13 +451,14 @@ private
 			labels_to_remove = Array.new
 			(oldlabels - labels).each { |l| labels_to_remove << l }
 			(labels - oldlabels ).each { |l| labels_to_add << l}
-			string =  JSON.generate [
+			data = {
 				:message_id => docid,
 				:subject => subject,
 			 	:labels_to_add => labels_to_add,
 			 	:labels_to_remove => labels_to_remove,
 				:date => Time.now
-			]
+			}
+			string = JSON.generate data	
 			logfile.puts string 
 			logfile.close
 
