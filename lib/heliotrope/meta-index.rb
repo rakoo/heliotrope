@@ -45,10 +45,12 @@ class MetaIndex
     @debug = true
     reset_timers!
 
-		if File.exists? "logfile.txt"
-			logfile = File.open("logfile.txt","a")
+		@logfile = "logfile.txt"
+
+		if File.exists? @logfile
+			logfile = File.open( @logfile,"a")
 		else
-			logfile = File.new("logfile.txt","a")
+			logfile = File.new( @logfile,"a")
 		end
 # Don't puts this, because it's not in a json format
 #logfile.puts "-- Logging operations on #{Time.now}"
@@ -319,11 +321,13 @@ private
     changed = new_mstate != old_mstate
     write_set key, new_mstate if changed
 		
+		# Write changes to logfile to sync back to imap server
+
 		key = "doc/#{docid}"
 		hash = load_hash key
 		subject = hash.fetch :subject
 		# the logfile should already exist
-		logfile = File.open("logfile.txt","a")
+		logfile = File.open( @logfile,"a")
 		states_to_add = Array.new
 		states_to_remove = Array.new
 		(old_mstate - new_mstate).each { |l| states_to_remove << l }
@@ -442,11 +446,12 @@ private
         @index.add_label docid, l
       end
 
-			# the logfile should already exist
+			# Write changes to logfile to sync back to imap server
+
 			key = "doc/#{docid}"
 			hash = load_hash key
 			subject = hash.fetch :subject
-			logfile = File.open("logfile.txt","a")
+			logfile = File.open( @logfile,"a")
 			labels_to_add = Array.new
 			labels_to_remove = Array.new
 			(oldlabels - labels).each { |l| labels_to_remove << l }
