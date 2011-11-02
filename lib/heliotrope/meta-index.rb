@@ -45,7 +45,6 @@ class MetaIndex
     @debug = true
     reset_timers!
 
-<<<<<<< HEAD
 		@logfile = "logfile.txt"
 
 		if File.exists? @logfile
@@ -53,16 +52,7 @@ class MetaIndex
 		else
 			logfile = File.new( @logfile,"a")
 		end
-# Don't puts this, because it's not in a json format
-#logfile.puts "-- Logging operations on #{Time.now}"
-=======
-		if File.exists? "logfile.txt"
-			logfile = File.open("logfile.txt","a")
-		else
-			logfile = File.new("logfile.txt","a")
-		end
-		logfile.puts "-- Logging operations on #{Time.now}"
->>>>>>> Write changes on logfile.txt
+
 		logfile.close 
 
   end
@@ -330,16 +320,11 @@ private
     changed = new_mstate != old_mstate
     write_set key, new_mstate if changed
 		
-<<<<<<< HEAD
 		# Write changes to logfile to sync back to imap server
-
-=======
->>>>>>> Write changes on logfile.txt
 		key = "doc/#{docid}"
 		hash = load_hash key
 		subject = hash.fetch :subject
-		# the logfile should already exist
-<<<<<<< HEAD
+
 		logfile = File.open( @logfile,"a")
 		states_to_add = Array.new
 		states_to_remove = Array.new
@@ -354,11 +339,7 @@ private
 		}
 		string =  JSON.generate data
 		logfile.puts string
-=======
-		logfile = File.open("logfile.txt","a")
-		(new_mstate - old_mstate).each {|s| logfile.puts "[#{Time.now}] added state #{s} to message #{docid} : #{subject}"}
-		(old_mstate - new_mstate).each {|s| logfile.puts "[#{Time.now}] removed state #{s} from message #{docid} : #{subject}"}
->>>>>>> Write changes on logfile.txt
+
 		logfile.close
 
     [changed, new_mstate]
@@ -484,6 +465,7 @@ private
 			string = JSON.generate data	
 			logfile.puts string 
 			logfile.close
+
 
     end
   end
