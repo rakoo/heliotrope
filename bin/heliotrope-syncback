@@ -1,13 +1,33 @@
 #!/usr/bin/env ruby
 # encoding: UTF-8
 
-require 'heliotrope-client'
 require 'json'
 require 'net/imap'
 require 'set'
-#require 'rubygems'
 
-module HeliotropeSyncback
+def remove_words_for_imap_compliance string
+	# Net::IMAP only wants to send ASCII string. : see imap.rb:1224
+	# So we have to remove every character that is not ascii (we cannot
+	# convert)
+	# The thing is, Net::IMAP is only used  for search. So we have to remove
+	# entire words were non-ascii characters appear
+	words_list = string.split
+	out = ""
+	words_list.each do |w|
+		if w.match /\u00e9/u # supposed to be é : remove the word, don't need to parse it any further
+			next
+		elsif w.match /\u0092/u # used in a malformed sentence to mean '
+			w.gsub! /\u0092/u, "\u0027"
+		end
+		out << " " << w
+	end
+
+	out.strip 
+end
+		
+
+@logfile = "logfile.txt"
+
 
 ## these are things that can be set on a per-message basis. each one
 ## corresponds to a particular label, but labels are propagated at the
@@ -18,24 +38,25 @@ MESSAGE_IMMUTABLE_STATE = Set.new %w(attachment signed encrypted draft sent)
 MESSAGE_STATE = MESSAGE_MUTABLE_STATE + MESSAGE_IMMUTABLE_STATE
 
 
-#hc = HeliotropeClient.new "http://localhost:8042"
 
-if File.exists? "logfile.txt"
-	logfile = File.open("logfile.txt","r+")
+
+if File.exists? @logfile
+	logfile = File.open( @logfile,"r+")
 else
-	logfile = File.new("logfile.txt","r+")
+	logfile = File.new( @logfile,"r+")
 end
 puts "-- Reading operations on #{Time.now}"
 
 puts "-- connecting to GMail"
 imap = Net::IMAP.new("imap.gmail.com","993",true)
 imap.login("salutlesamis.coucou@gmail.com", "coucoupassword")
-#imap.select('[Gmail]/All Mail') #useless
 puts "-- connected to GMail" 
 
 logfile.each do |line| 
 	hash = JSON.parse line
 	subject = hash["subject"]
+
+	subject = remove_words_for_imap_compliance subject
 	labels_to_add = Set.new hash["labels_to_add"] 
 	labels_to_remove = Set.new hash["labels_to_remove"] 
 	states_to_add = Set.new hash["states_to_add"] 
@@ -60,11 +81,11 @@ logfile.each do |line|
 			# strings 
 			imap.uid_search(["SUBJECT", subject]).each do |message_uid|
 				puts "	add label #{label} on message #{message_uid}"
-				imap.uid_copy message_uid, labels_to_add.first
+				imap.uid_copy message_uid, label
 				# Note : Gmail does support IMAP keywords (these :
 				# http://deflexion.com/2006/05/server-side-message-labels)
 				# but they are not used by Gmail in any way -- especially, they
-				# are not visible on the webmail UI -- so we don't update this field
+				# are not visible on the webmail UI -- so we don't update this field, although it would be preferrable
 			end
 		end
 	end
@@ -145,4 +166,5 @@ imap.disconnect
 puts "-- disconnected from GMail"
 
 logfile.close 
-end
+
+
