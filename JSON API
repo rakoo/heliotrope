@@ -1,0 +1,209 @@
+base_url = http://localhost:8042
+
++ labels
+
+GET /labels.json
+
+returns
+
+{
+	"labels" : [
+		"label1",
+		"label2",
+		],
+	"response": "ok"
+}
+
+
++ search
+
+GET /search.json?q=inbox&q=coucou
+
+returns
+
+{"response":"ok",
+	"results":[
+		{
+			"subject":"Accord conclu entre Texas Instruments et National Semiconductor",
+			"date":1317050113,
+			"participants":["Texas Instruments "],
+			"direct_recipients":[""],
+			"indirect_recipients":[],
+			"size":1,
+			"thread_id":642,
+			"state":[],
+			"labels":[],
+			"snippet":"T E X A S I N S T R U M E N T S -------------------------------------------",
+			"unread_participants":[]
+		},
+		{
+			"subject":"[sup-talk] Showing archived messages",
+			"date":1317397896,
+			"participants":["jomat
+			",
+			"David J. Hamilton ",
+			"Diego Joss "],
+			"direct_recipients":["sup-talk "],
+			"indirect_recipients":[],
+			"size":4,
+			"thread_id":469,
+			"state":[],
+			"labels":["supelec",
+			"attachment"],
+			"snippet":"Hi, I'm using the git version of supehavior in 0.11. According to http",
+			"unread_participants":[]
+		},
+		{
+			"subject":"Woot Newsletter: Are We Talkin' To You?",
+			"date":1313398208,
+			"participants":["WootBot
+			"],
+			"direct_recipients":[""],
+			"indirect_recipients":[],
+			"size":1,
+			"thread_id":101,
+			"state":[],
+			"labels":["hotmail"],
+			"snippet":"Woot Newsletter: Are We Talkin' Tos very special [1]Woot newsletter, we've ",
+			"unread_participants":[]
+		},
+		{
+			"subject":"[sup-talk] Exception when archiving thread and moving to previous one",
+			"date":1313126679,
+			"participants":["Alexander Shulgin "],
+			"direct_recipients":[""],
+			"indirect_recipients":[],
+			"size":2,
+			"thread_id":71,
+			"state":[],
+			"labels":[],
+			"snippet":"Hello, Just got this exception: --- Argd: load messages for thread-view-mode bu",
+			"unread_participants":[]
+		}
+	]
+}
+
++ thread/123.json
+
+returns
+
+{
+	"messageinfos":[
+		[
+			{
+				"subject":"Re: [cloudnas] [CloudNAS] Lecture Seule",
+					"date":1319029555,
+					"from":"Heine <heine@free.fr>",
+					"to":["<cloudnas@ml.ovh.net>"],
+					"cc":[],
+					"has_attachment":false,
+					"loc":399468999,
+					"state":[],
+					"labels":["ovh","supelec","attachment"],
+					"thread_id":745,
+					"snippet":"Du nouveau, sous Ubuntu ça se connee de créer un nouveau dossier: Erreur -> For",
+					"message_id":745
+			},
+			0
+		],
+		[
+			{
+				"subject":"Re: [cloudnas] [CloudNAS] Lecture Seule",
+				"date":1319033185,
+				"from":"Jean Lespinasse <jean.lespinasse@cafougnette.com>",
+				"to":["<cloudnas@ml.ovh.net>"],
+				"cc":[],
+				"has_attachment":false,
+				"loc":399474337,
+				"state":[],
+				"labels":["ovh","supelec","attachment"],
+				"thread_id":745,
+				"snippet":"Le 19 oct. 2011 à 15:05, Heine a écriien que quelque chose se passe : > -dégager c",
+				"message_id":748
+			},
+			1
+		],
+		[
+			{
+				"subject":"[cloudnas] Retour Expérience",
+				"date":1319036546,
+				"from":"Eric Brocherie <ericb@shaman.fr>",
+				"to":["<cloudnas@ml.ovh.net>"],
+				"cc":[],
+				"has_attachment":false,
+				"loc":399478187,
+				"state":[],
+				"labels":["ovh","supelec","attachment"],
+				"thread_id":745,
+				"snippet":"Bonjour après maintenant 3 semainetidiennes voici mon avis. Je suis sur Mac OS Li",
+				"message_id":750
+			},
+			2
+		],
+		[
+			{
+				"subject":"Re: [cloudnas] Retour Expérience",
+				"date":1319044144,
+				"from":"Pierre <pr@ovh.net>",
+				"to":["<cloudnas@ml.ovh.net>"],
+				"cc":[],
+				"has_attachment":false,
+				"loc":399480093,
+				"state":[],
+				"labels":["ovh","supelec","attachment"],
+				"thread_id":745,
+				"snippet":"Bonsoir, Merci pour ton retour :)quelques innovations en cours de préparation, qui ",
+				"message_id":751
+			},
+			3 # this is not an index of the message in the thread, but ?
+		]
+	],
+	"response":"ok"
+}
+
++ message
+
+GET /message/123.json
+
+returns
+
+{
+	"subject":"Re: [cloudnas] [CloudNAS] Lecture Seule",
+	"date":1319029555,
+	"from":"Heine <heine@free.fr>",
+	"to":["<cloudnas@ml.ovh.net>"],
+	"cc":[],
+	"has_attachment":false,
+	"loc":399468999,
+	"state":[],
+	"labels":["ovh","supelec","attachment"],
+	"thread_id":745,
+	"snippet":"Du nouveau, sous Ubuntu ça se connej'essaye de créer un nouveau dossier: Erreur -> For",
+	"message_id":745,
+	"bcc":[],
+	"refs":[
+		"88d14901-2700-477b-8eba-a96c2445c767@mail",
+		"4E8DAF8D.1080309@free.fr",
+		"CAN3CJnxhJRddjRYk5bAwsC67h6NS25-P4fCnqZ2Muf2N906w8Q@mail.gmail.com",
+		"4E8DB3F9.5090900@free.fr",
+		"20111006143431.GM8639@mail3.serarien.com",
+		"4E8DCD59.6050004@free.fr",
+		"4E92F4C7.7090008@free.fr"
+		],
+	"parts":[
+		{
+			"type":"text/plain; charset=utf-8; format=flowed",
+			"filename":null,
+			"cid":null,
+			"content":"blablabla",
+			"here":true
+		}
+	],
+	"reply_to":"<cloudnas@ml.ovh.net>",
+	"recipient_email":"matthieu.rakotojaona@gmail.com",
+	"list_post":"<mailto:cloudnas@ml.ovh.net>",
+	"list_subscribe":"<mailto:cloudnas-subscribe@ml.ovh.net>",
+	"list_unsubscribe":"<mailto:cloudnas-unsubscribe@ml.ovh.net>",
+	"email_message_id":"4E9ECB33.5070707@free.fr",
+	"response":"ok"
+}
