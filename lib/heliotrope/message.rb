@@ -7,12 +7,8 @@ require 'timeout'
 
 module Mail
   class Message
-
-    # a common interface that matches all the field
-    # IMPORTANT : if not existing, it must return nil
-    def fetch_header field
-      sym = field.to_sym
-      self[sym] ? self[sym].to_s : nil
+    def fetch field
+      self[field] ? self[field].decoded : nil
     end
   end
 end
@@ -29,15 +25,22 @@ class Message
     @m = Mail.read_from_string @rawbody
 
     # Mail::MessageIdField.message_id returns the msgid with < and >, which is not correct
-    @msgid = @m.message_id
-    raise InvalidMessageError, "Msgid looks empty. Ending operations here." if (@msgid.nil? || @msgid.empty?)
+    @msgid = @m[:message_id].message_id
     @safe_msgid = munge_msgid @msgid
 
-    @from = Person.from_string @m.fetch_header(:from)
+    # From can contain multiple mailboxes. If it does, it MUST contain a
+    # Sender: field, which we will use. If it does not, it doesn't respect
+    # RFC5322, but we will use the first email address of the From: header.
+    # Mail::FromField.from returns an array of addresses, not a String
+    @from = if @m.from.size > 1
+      @m.sender ? @m.sender.first : @m.from.first
+    else
+      Person.from_string @m.from.first
+    end
 
     @sender = begin
       # Mail::SenderField.sender returns an array, not a String
-      Person.from_string @m.fetch_header(:sender)
+      Person.from_string(@m.sender.first) if @m.sender
       rescue InvalidMessageError
         ""
     end
@@ -48,14 +51,12 @@ class Message
       0
     end
 
-    @to = Person.many_from_string(@m.fetch_header(:to))
-    @cc = Person.many_from_string(@m.fetch_header(:cc))
-    @bcc = Person.many_from_string(@m.fetch_header(:bcc))
-    @subject =  (@m.subject || "")
-    @reply_to = Person.from_string(@m.fetch_header(:reply_to))
+    @to = Person.many_from_string(@m.fetch(:to))
+    @cc = Person.many_from_string(@m.fetch(:cc))
+    @bcc = Person.many_from_string(@m.fetch(:bcc))
+    @subject =  @m.subject
+    @reply_to = Person.from_string(@m.fetch(:reply_to))
 
-    # same as message_id : we must use message_ids to get them without <
-    # and >
     @refs = @m[:references].nil? ? [] : @m[:references].message_ids
     in_reply_to = @m[:in_reply_to].nil? ? [] : @m[:in_reply_to].message_ids
     @refs += in_reply_to unless @refs.member?(in_reply_to.first)
@@ -66,11 +67,11 @@ class Message
 
     ## this is sometimes useful for determining who was the actual target of
     ## the email, in the case that someone has aliases
-    @recipient_email = @m.fetch_header(:envelope_to) || @m.fetch_header(:x_original_to) || @m.fetch_header(:delivered_to)
+    @recipient_email = @m.fetch(:envelope_to) || @m.fetch(:x_original_to) || @m.fetch(:delivered_to)
 
-    @list_subscribe = @m.fetch_header(:list_subscribe)
-    @list_unsubscribe = @m.fetch_header(:list_unsubscribe)
-    @list_post = @m.fetch_header(:list_post) || @m.fetch_header(:x_mailing_list)
+    @list_subscribe = @m.fetch(:list_subscribe)
+    @list_unsubscribe = @m.fetch(:list_unsubscribe)
+    @list_post = @m.fetch(:list_post) || @m.fetch(:x_mailing_list)
 
     self
   end
@@ -177,7 +178,7 @@ private
   end
 
   def mime_part_types part=@m
-    ptype = part.fetch_header(:content_type)
+    ptype = part.fetch(:content_type)
     [ptype] + (part.multipart? ? part.body.parts.map { |sub| mime_part_types sub } : [])
   end
 
@@ -189,7 +190,7 @@ private
   def decode_mime_parts part, preferred_type, level=0
     if part.multipart?
       if mime_type_for(part) =~ /multipart\/alternative/
-        target = part.body.parts.find { |p| mime_type_for(p).index(preferred_type) } || part.body.parts.first
+        target = part.body.parts.find { |p| mime_type_for(p).index(preferred_type) } || part.body.first
         if target # this can be nil
           decode_mime_parts target, preferred_type, level + 1
         else
@@ -217,11 +218,11 @@ private
   end
 
   def mime_type_for part
-    (part.fetch_header(:content_type) || "text/plain").gsub(/\s+/, " ").strip.downcase
+    (part.fetch(:content_type) || "text/plain").gsub(/\s+/, " ").strip.downcase
   end
 
   def mime_id_for part
-    header = part.fetch_header(:content_id)
+    header = part.fetch(:content_id)
     case header
       when /<(.+?)>/; $1
       else header
@@ -230,8 +231,8 @@ private
 
   ## a filename, or nil
   def mime_filename_for part
-    cd = part.fetch_header(:content_disposition)
-    ct = part.fetch_header(:content_type)
+    cd = part.fetch(:content_disposition)
+    ct = part.fetch(:content_type)
 
     ## RFC 2183 (Content-Disposition) specifies that disposition-parms are
     ## separated by ";". So, we match everything up to " and ; (if present).
@@ -255,7 +256,7 @@ private
   def mime_content_for mime_part, preferred_type
     return "" unless mime_part.body # sometimes this happens. not sure why.
 
-    content_type = mime_part.fetch_header(:content_type) || "text/plain"
+    content_type = mime_part.fetch(:content_type) || "text/plain"
     source_charset = mime_part.charset || "US-ASCII"
 
     content = mime_part.decoded
