@@ -1,9 +1,17 @@
 # encoding: UTF-8
 
-require 'rmail'
+require 'mail'
 require 'digest/md5'
 require 'json'
 require 'timeout'
+
+module Mail
+  class Message
+    def fetch field
+      self[field] ? self[field].decoded : nil
+    end
+  end
+end
 
 module Heliotrope
 class InvalidMessageError < StandardError; end
@@ -14,43 +22,56 @@ class Message
   end
 
   def parse!
-    @m = RMail::Parser.read @rawbody
+    @m = Mail.read_from_string @rawbody
 
-    @msgid = find_msgids(decode_header(validate_field(:message_id, @m.header["message-id"]))).first
-    ## this next error happens if we have a field, but we can't find a <something> in it
-    raise InvalidMessageError, "can't parse msgid: #{@m.header['message-id']}" unless @msgid
+    # Mail::MessageIdField.message_id returns the msgid with < and >, which is not correct
+    @msgid = @m[:message_id].message_id
     @safe_msgid = munge_msgid @msgid
 
-    @from = Person.from_string decode_header(validate_field(:from, @m.header["from"]))
+    # From can contain multiple mailboxes. If it does, it MUST contain a
+    # Sender: field, which we will use. If it does not, it doesn't respect
+    # RFC5322, but we will use the first email address of the From: header.
+    # Mail::FromField.from returns an array of addresses, not a String
+    @from = if @m.from.size > 1
+      @m.sender ? @m.sender.first : @m.from.first
+    else
+      Person.from_string @m.from.first
+    end
+
+    @sender = begin
+      # Mail::SenderField.sender returns an array, not a String
+      Person.from_string(@m.sender.first) if @m.sender
+      rescue InvalidMessageError
+        ""
+    end
+
     @date = begin
-      Time.parse(validate_field(:date, @m.header["date"])).to_i
+      @m.date.to_time.to_i
     rescue ArgumentError
-      #puts "warning: invalid date field #{@m.header['date']}"
       0
     end
 
-    @to = Person.many_from_string decode_header(@m.header["to"])
-    @cc = Person.many_from_string decode_header(@m.header["cc"])
-    @bcc = Person.many_from_string decode_header(@m.header["bcc"])
-    @subject = decode_header @m.header["subject"]
-    @reply_to = Person.from_string @m.header["reply-to"]
+    @to = Person.many_from_string(@m.fetch(:to))
+    @cc = Person.many_from_string(@m.fetch(:cc))
+    @bcc = Person.many_from_string(@m.fetch(:bcc))
+    @subject =  @m.subject
+    @reply_to = Person.from_string(@m.fetch(:reply_to))
 
-    @refs = find_msgids decode_header(@m.header["references"] || "")
-    in_reply_to = find_msgids decode_header(@m.header["in-reply-to"] || "")
-    @refs += in_reply_to unless @refs.member? in_reply_to.first
-    @safe_refs = @refs.map { |r| munge_msgid(r) }
+    @refs = @m[:references].nil? ? [] : @m[:references].message_ids
+    in_reply_to = @m[:in_reply_to].nil? ? [] : @m[:in_reply_to].message_ids
+    @refs += in_reply_to unless @refs.member?(in_reply_to.first)
+    @safe_refs = @refs.nil? ? [] : @refs.map { |r| munge_msgid(r) }
 
     ## various other headers that you don't think we will need until we
     ## actually need them.
 
     ## this is sometimes useful for determining who was the actual target of
     ## the email, in the case that someone has aliases
-    @recipient_email = @m.header["envelope-to"] || @m.header["x-original-to"] || @m.header["delivered-to"]
+    @recipient_email = @m.fetch(:envelope_to) || @m.fetch(:x_original_to) || @m.fetch(:delivered_to)
 
-    @list_id = @m.header["list-id"]
-    @list_subscribe = @m.header["list-subscribe"]
-    @list_unsubscribe = @m.header["list-unsubscribe"]
-    @list_post = @m.header["list-post"] || @m.header["x-mailing-list"]
+    @list_subscribe = @m.fetch(:list_subscribe)
+    @list_unsubscribe = @m.fetch(:list_unsubscribe)
+    @list_post = @m.fetch(:list_post) || @m.fetch(:x_mailing_list)
 
     self
   end
@@ -75,8 +96,8 @@ class Message
 
     { :from => (from ? from.to_email_address : ""),
       :to => to.map(&:to_email_address),
-      :cc => cc.map(&:to_email_address),
-      :bcc => bcc.map(&:to_email_address),
+      :cc => (cc || []).map(&:to_email_address),
+      :bcc => (bcc || []).map(&:to_email_address),
       :subject => subject,
       :date => date,
       :refs => refs,
@@ -95,8 +116,8 @@ class Message
   end
 
   def direct_recipients; to end
-  def indirect_recipients; cc + bcc end
-  def recipients; direct_recipients + indirect_recipients end
+  def indirect_recipients; (cc || []) + (bcc || []) end
+  def recipients; (direct_recipients || []) + (indirect_recipients || []) end
 
   def indexable_text
     @indexable_text ||= begin
@@ -134,10 +155,7 @@ class Message
   end
 
   def has_attachment?
-    @has_attachment ||=
-      mime_parts("text/plain").any? do |type, fn, id, content|
-        fn && (type !~ SIGNATURE_ATTACHMENT_TYPE)
-    end
+    @m.has_attachments? # defined in the mail gem
   end
 
   def signed?
@@ -159,13 +177,9 @@ private
     Digest::MD5.hexdigest msgid
   end
 
-  def find_msgids msgids
-    msgids.scan(/<(.+?)>/).map(&:first)
-  end
-
   def mime_part_types part=@m
-    ptype = part.header["content-type"] || ""
-    [ptype] + (part.multipart? ? part.body.map { |sub| mime_part_types sub } : [])
+    ptype = part.fetch(:content_type)
+    [ptype] + (part.multipart? ? part.body.parts.map { |sub| mime_part_types sub } : [])
   end
 
   ## unnests all the mime stuff and returns a list of [type, filename, content]
@@ -176,14 +190,14 @@ private
   def decode_mime_parts part, preferred_type, level=0
     if part.multipart?
       if mime_type_for(part) =~ /multipart\/alternative/
-        target = part.body.find { |p| mime_type_for(p).index(preferred_type) } || part.body.first
+        target = part.body.parts.find { |p| mime_type_for(p).index(preferred_type) } || part.body.first
         if target # this can be nil
           decode_mime_parts target, preferred_type, level + 1
         else
           []
         end
       else # decode 'em all
-        part.body.compact.map { |subpart| decode_mime_parts subpart, preferred_type, level + 1 }.flatten 1
+        part.body.parts.compact.map { |subpart| decode_mime_parts subpart, preferred_type, level + 1 }.flatten 1
       end
     else
       type = mime_type_for part
@@ -204,11 +218,11 @@ private
   end
 
   def mime_type_for part
-    (part.header["content-type"] || "text/plain").gsub(/\s+/, " ").strip.downcase
+    (part.fetch(:content_type) || "text/plain").gsub(/\s+/, " ").strip.downcase
   end
 
   def mime_id_for part
-    header = part.header["content-id"]
+    header = part.fetch(:content_id)
     case header
       when /<(.+?)>/; $1
       else header
@@ -217,8 +231,8 @@ private
 
   ## a filename, or nil
   def mime_filename_for part
-    cd = part.header["Content-Disposition"]
-    ct = part.header["Content-Type"]
+    cd = part.fetch(:content_disposition)
+    ct = part.fetch(:content_type)
 
     ## RFC 2183 (Content-Disposition) specifies that disposition-parms are
     ## separated by ";". So, we match everything up to " and ; (if present).
@@ -229,20 +243,7 @@ private
     end
 
     ## filename could be RFC2047 encoded
-    decode_header(filename).chomp if filename
-  end
-
-  ## rfc2047-decode a header, convert to utf-8, and normalize whitespace
-  def decode_header v
-    return "" if v.nil?
-
-    v = if Decoder.is_rfc2047_encoded? v
-      Decoder.decode_rfc2047 "utf-8", v
-    else # assume it's ascii and transcode
-      Decoder.transcode "utf-8", "ascii", v
-    end
-
-    v.gsub(/\s+/, " ").strip
+    filename.chomp if filename
   end
 
   CONVERSIONS = {
@@ -255,11 +256,10 @@ private
   def mime_content_for mime_part, preferred_type
     return "" unless mime_part.body # sometimes this happens. not sure why.
 
-    mt = mime_type_for(mime_part) || "text/plain" # i guess
-    content_type = if mt =~ /^(.+);/ then $1.downcase else mt end
-    source_charset = if mt =~ /charset="?(.*?)"?(;|$)/i then $1 else "US-ASCII" end
+    content_type = mime_part.fetch(:content_type) || "text/plain"
+    source_charset = mime_part.charset || "US-ASCII"
 
-    content = mime_part.decode
+    content = mime_part.decoded
     converted_content, converted_charset = if(converter = CONVERSIONS[[content_type, preferred_type]])
       send converter, content, source_charset
     else
