@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+
+require 'heliotrope-client'
+
+h = HeliotropeClient.new "http://localhost:8042"
+
+puts h.messageinfos 1
