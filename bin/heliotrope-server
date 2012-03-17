@@ -9,6 +9,7 @@ require 'whistlepig'
 require "heliotrope"
 require 'cgi'
 require 'rack'
+require 'rack/contrib/jsonp'
 require 'fileutils'
 
 class Set
@@ -653,6 +654,7 @@ app = if opts.mode == "development"
     #use Rack::CommonLogger, $stdout
     use Rack::ShowExceptions
     use Rack::Lint
+    use Rack::JSONP
     run server
   end.to_app
 else
