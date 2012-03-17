@@ -47,7 +47,7 @@ class Decoder
 
     if in_ruby19_hell?
       ret = begin
-        text.dup.force_encoding(source_charset).encode(target_charset)
+        text.dup.encode(target_charset)
       rescue EncodingError, ArgumentError => e
         nil
       end
