@@ -25,7 +25,8 @@ class Message
     @m = Mail.read_from_string @rawbody
 
     # Mail::MessageIdField.message_id returns the msgid with < and >, which is not correct
-    @msgid = @m[:message_id].message_id
+    @msgid = @m.fetch(:message_id)
+    raise InvalidMessageError, "Msgid looks empty. Ending operations here." if (@msgid.nil? || msgid.empty?)
     @safe_msgid = munge_msgid @msgid
 
     # From can contain multiple mailboxes. If it does, it MUST contain a
