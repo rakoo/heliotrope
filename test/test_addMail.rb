@@ -7,11 +7,11 @@ class HeliotropeAddMessageTest < ::Test::Unit::TestCase
 
   def setup
     @hc = HeliotropeClient.new "http://localhost:8042"
-    @mail = File.open("resources/facebook.mail",'r')
+    @mail_raw = File.open("resources/facebook.mail",'r').read
   end
 
   def testAddFacebookMessage
-    result = @hc.add_message @mail, {:labels => ["inbox"], :state => ["unread"]}
+    result = @hc.add_message @mail_raw, {:labels => ["inbox"], :state => ["unread"]}
     puts result.inspect
   end
 
