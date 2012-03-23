@@ -1,0 +1,30 @@
+require 'test/unit'
+#require 'fileutils'
+#require 'digest/md5'
+require "heliotrope-client"
+
+class HeliotropeAddMessageTest < ::Test::Unit::TestCase
+
+  def setup
+    @hc = HeliotropeClient.new "http://localhost:8042"
+    @mail = File.open("resources/facebook.mail",'r')
+  end
+
+  def testAddFacebookMessage
+    result = @hc.add_message @mail, {:labels => ["inbox"], :state => ["unread"]}
+    puts result.inspect
+  end
+
+
+private
+
+  def assert_includes v, set # standard one seems to have these things reversed
+    assert set.include?(v), "#{set.inspect[0..50]} does not include #{v.inspect}"
+  end
+
+  def assert_does_not_include v, set
+    assert !set.include?(v), "#{set.inspect[0..50]} includes #{v.inspect}"
+  end
+
+  def assert_empty x; x.empty? end unless respond_to?(:assert_empty)
+end
