@@ -7,10 +7,18 @@ require 'timeout'
 
 module Mail
   class Message
-    def fetch field
-      self[field] ? self[field].decoded : nil
+    def fetch_header field
+      if self[field]
+        if self[field].respond_to? decoded # Mail gem internal method
+          self[field].decoded
+        else if self[field].respond_to? first # might be an array
+          self[field].first
+        else if self[field].respond_to? to_s # very dirty, we shouldn't rely on this
+          self[field].to_s
+        end
     end
   end
+end
 end
 
 module Heliotrope
@@ -25,7 +33,7 @@ class Message
     @m = Mail.read_from_string @rawbody
 
     # Mail::MessageIdField.message_id returns the msgid with < and >, which is not correct
-    @msgid = @m.fetch(:message_id)
+    @msgid = @m.fetch_header(:message_id)
     raise InvalidMessageError, "Msgid looks empty. Ending operations here." if (@msgid.nil? || msgid.empty?)
     @safe_msgid = munge_msgid @msgid
 
@@ -52,11 +60,11 @@ class Message
       0
     end
 
-    @to = Person.many_from_string(@m.fetch(:to))
-    @cc = Person.many_from_string(@m.fetch(:cc))
-    @bcc = Person.many_from_string(@m.fetch(:bcc))
+    @to = Person.many_from_string(@m.fetch_header(:to))
+    @cc = Person.many_from_string(@m.fetch_header(:cc))
+    @bcc = Person.many_from_string(@m.fetch_header(:bcc))
     @subject =  @m.subject
-    @reply_to = Person.from_string(@m.fetch(:reply_to))
+    @reply_to = Person.from_string(@m.fetch_header(:reply_to))
 
     @refs = @m[:references].nil? ? [] : @m[:references].message_ids
     in_reply_to = @m[:in_reply_to].nil? ? [] : @m[:in_reply_to].message_ids
@@ -68,11 +76,11 @@ class Message
 
     ## this is sometimes useful for determining who was the actual target of
     ## the email, in the case that someone has aliases
-    @recipient_email = @m.fetch(:envelope_to) || @m.fetch(:x_original_to) || @m.fetch(:delivered_to)
+    @recipient_email = @m.fetch_header(:envelope_to) || @m.fetch(:x_original_to) || @m.fetch(:delivered_to)
 
-    @list_subscribe = @m.fetch(:list_subscribe)
-    @list_unsubscribe = @m.fetch(:list_unsubscribe)
-    @list_post = @m.fetch(:list_post) || @m.fetch(:x_mailing_list)
+    @list_subscribe = @m.fetch_header(:list_subscribe)
+    @list_unsubscribe = @m.fetch_header(:list_unsubscribe)
+    @list_post = @m.fetch_header(:list_post) || @m.fetch(:x_mailing_list)
 
     self
   end
@@ -179,7 +187,7 @@ private
   end
 
   def mime_part_types part=@m
-    ptype = part.fetch(:content_type)
+    ptype = part.fetch_header(:content_type)
     [ptype] + (part.multipart? ? part.body.parts.map { |sub| mime_part_types sub } : [])
   end
 
@@ -219,11 +227,11 @@ private
   end
 
   def mime_type_for part
-    (part.fetch(:content_type) || "text/plain").gsub(/\s+/, " ").strip.downcase
+    (part.fetch_header(:content_type) || "text/plain").gsub(/\s+/, " ").strip.downcase
   end
 
   def mime_id_for part
-    header = part.fetch(:content_id)
+    header = part.fetch_header(:content_id)
     case header
       when /<(.+?)>/; $1
       else header
@@ -232,8 +240,8 @@ private
 
   ## a filename, or nil
   def mime_filename_for part
-    cd = part.fetch(:content_disposition)
-    ct = part.fetch(:content_type)
+    cd = part.fetch_header(:content_disposition)
+    ct = part.fetch_header(:content_type)
 
     ## RFC 2183 (Content-Disposition) specifies that disposition-parms are
     ## separated by ";". So, we match everything up to " and ; (if present).
@@ -257,7 +265,7 @@ private
   def mime_content_for mime_part, preferred_type
     return "" unless mime_part.body # sometimes this happens. not sure why.
 
-    content_type = mime_part.fetch(:content_type) || "text/plain"
+    content_type = mime_part.fetch_header(:content_type) || "text/plain"
     source_charset = mime_part.charset || "US-ASCII"
 
     content = mime_part.decoded
