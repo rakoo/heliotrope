@@ -9,16 +9,16 @@ module Mail
   class Message
     def fetch_header field
       if self[field]
-        if self[field].respond_to? decoded # Mail gem internal method
+        if self[field].respond_to? 'decoded' # Mail gem internal method
           self[field].decoded
-        else if self[field].respond_to? first # might be an array
+        elsif self[field].respond_to? 'first' # might be an array
           self[field].first
-        else if self[field].respond_to? to_s # very dirty, we shouldn't rely on this
+        elsif self[field].respond_to? 'to_s' # very dirty, we shouldn't rely on this
           self[field].to_s
         end
+      end
     end
   end
-end
 end
 
 module Heliotrope
@@ -33,7 +33,7 @@ class Message
     @m = Mail.read_from_string @rawbody
 
     # Mail::MessageIdField.message_id returns the msgid with < and >, which is not correct
-    @msgid = @m.fetch_header(:message_id)
+    @msgid = @m[:message_id].message_id
     raise InvalidMessageError, "Msgid looks empty. Ending operations here." if (@msgid.nil? || msgid.empty?)
     @safe_msgid = munge_msgid @msgid
 
@@ -76,11 +76,11 @@ class Message
 
     ## this is sometimes useful for determining who was the actual target of
     ## the email, in the case that someone has aliases
-    @recipient_email = @m.fetch_header(:envelope_to) || @m.fetch(:x_original_to) || @m.fetch(:delivered_to)
+    @recipient_email = @m.fetch_header(:envelope_to) || @m.fetch_header(:x_original_to) || @m.fetch_header(:delivered_to)
 
     @list_subscribe = @m.fetch_header(:list_subscribe)
     @list_unsubscribe = @m.fetch_header(:list_unsubscribe)
-    @list_post = @m.fetch_header(:list_post) || @m.fetch(:x_mailing_list)
+    @list_post = @m.fetch_header(:list_post) || @m.fetch_header(:x_mailing_list)
 
     self
   end
