@@ -7,16 +7,12 @@ require 'timeout'
 
 module Mail
   class Message
+
+    # a common interface that matches all the field
+    # IMPORTANT : if not existing, it must return nil
     def fetch_header field
-      if self[field]
-        if self[field].respond_to? 'decoded' # Mail gem internal method
-          self[field].decoded
-        elsif self[field].respond_to? 'first' # might be an array
-          self[field].first
-        elsif self[field].respond_to? 'to_s' # very dirty, we shouldn't rely on this
-          self[field].to_s
-        end
-      end
+      sym = field.to_sym
+      self[sym] ? self[sym].to_s : nil
     end
   end
 end
@@ -44,12 +40,12 @@ class Message
     @from = if @m.from.size > 1
       @m.sender ? @m.sender.first : @m.from.first
     else
-      Person.from_string @m.from.first
+      Person.from_string @m.fetch_header(:from)
     end
 
     @sender = begin
       # Mail::SenderField.sender returns an array, not a String
-      Person.from_string(@m.sender.first) if @m.sender
+      Person.from_string @m.fetch_header(:sender)
       rescue InvalidMessageError
         ""
     end
@@ -66,6 +62,8 @@ class Message
     @subject =  @m.subject
     @reply_to = Person.from_string(@m.fetch_header(:reply_to))
 
+    # same as message_id : we must use message_ids to get them without <
+    # and >
     @refs = @m[:references].nil? ? [] : @m[:references].message_ids
     in_reply_to = @m[:in_reply_to].nil? ? [] : @m[:in_reply_to].message_ids
     @refs += in_reply_to unless @refs.member?(in_reply_to.first)
