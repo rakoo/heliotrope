@@ -1,12 +1,13 @@
 require 'heliotrope-client'
+require 'trollop'
 require 'psych'
 
 class Filter
   SEARCHABLE_FIELDS = Set.new %w(from to subject date body)
 
-  def initialize
+  def initialize opts
     @hc = HeliotropeClient.new "http://localhost:8042"
-    @conf = Psych.load_file "rules.yml"
+    @conf = Psych.load_file File.join(opts.dir, "filtering_rules.yml")
   end
 
   def manual_heliotrope_run
@@ -61,5 +62,9 @@ class Filter
 
 end
 
-v = Filter.new
+opts = Trollop::options do
+  opt :dir, "Base directory for all index files", :default => "."
+end
+
+v = Filter.new opts
 v.manual_heliotrope_run
