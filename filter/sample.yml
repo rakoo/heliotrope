@@ -1,0 +1,30 @@
+- 
+  # the key must be a working query for heliotrope/whistlepig
+  from:"me@test.com" to:"you@test.com" :
+    labels: "peace_message"
+
+- 
+  # state/labels can be 1..N. you can put them inline or in a list (pure
+  # yaml). If you only have 1, you can put it as a string instead of as
+  # an array; both cases will be correctly managed (see before)
+  from:"aliens@elsewhere.com" to:"humans@earth.com" :
+    labels:
+      - "war"
+      - "invasion"
+    state: ["inbox", "unread"]
+
+- 
+  # use + before a label/state to indicate that it has to be there.
+  # just writing the label/state (as before) also works.
+  # use - before to say it should not be there
+  subject:"speeding ticket" :
+    state: "-spam"
+
+-
+  # " are not mandatory, but are used for more clarity and for strings
+  # containing a space
+  subject:"Hello from here" from:localhost :
+    labels: 
+      - friend
+      - "hello"
+
