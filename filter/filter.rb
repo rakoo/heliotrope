@@ -104,7 +104,6 @@ class Filter
   def initialize opts
     @hc = HeliotropeClient.new "http://localhost:8042"
     @conf = Psych.load_file (opts.check || File.join(opts.dir, "filtering_rules.yml"))
-    @gmail_filters_file = opts[:import]
   end
 
   def manual_heliotrope_run
@@ -115,48 +114,35 @@ class Filter
       # we use a query which is of the form
       #   from:bob@test.com to:bob@test2.org subject:yeah
 
-
       # step 1 : get the matching threads
-      query = ""
-
-      matches = conf["criterias"]
-      SEARCHABLE_FIELDS.each do |field|
-        unless matches[field].nil? || matches[field].empty?
-          if matches[field].respond_to? 'each'
-            matches[field].each {|param| query << "#{field}:#{param} " }
-          elsif matches[field].respond_to? '+'
-            query << "#{field}:#{matches[field]}"
-          end
-        end
+      if conf.keys.size > 1 || conf.values.size > 1
+        raise "Rule is malformed : #{conf}" 
       end
+      query = conf.keys[0].dup
 
-      expected_labels = Set.new(conf["actions"]["labels"])
-      expected_state = Set.new(conf["actions"]["state"])
-      puts "looking for '#{query.strip}', should be labels:#{expected_labels.to_a} and state:#{expected_state.to_a}"
-      results = @hc.search query.strip
+      expected_labels =  return_set_from_conf conf.values[0]["labels"]
+      expected_state = return_set_from_conf conf.values[0]["state"]
+
+      # I don't like side-effects functions
+      query_1 = add_set_to_query query, expected_labels
+      new_query = add_set_to_query query_1, expected_state
+          
+      puts "looking for '#{new_query}'"
+      results = @hc.search new_query
 
       # step 2 : verify the labels and the state
 
       results.each do |r|
-        actual_labels = Set.new(r["labels"])
-        actual_state = Set.new(r["state"])
 
-        is_erroneous_labels = !actual_labels.superset?(expected_labels)
-        is_erroneous_state = !actual_state.superset?(expected_state)
-        if is_erroneous_labels
-          puts "-- pb on thread #{r["thread_id"]}: labels #{actual_labels.to_a} should contain #{expected_labels.to_a}"
-          # @hc.set_labels! r["thread_id"], expected_labels.to_a
-        end
-        if is_erroneous_state
-          puts "-- pb on thread #{r["thread_id"]}: state #{actual_state.to_a} should contain #{expected_state.to_a}"
-          # TODO: we have to verify state for each message -- maybe later
-        end
+        treat_labels_or_state Set.new(r["labels"]), expected_labels, r["thread_id"]
+        treat_labels_or_state Set.new(r["state"]), expected_state, r["thread_id"]
+
       end
       puts "------------------"
     end
   end
 
-  def import
+  def import filename
     require 'nokogiri'
 
     # Map Gmail's matching capabilities to heliotrope's
@@ -167,7 +153,7 @@ class Filter
 
     final_file = []
 
-    gmail_filters = Nokogiri::Slop(File.open(@gmail_filters_file))
+    gmail_filters = Nokogiri::Slop(File.open(filename))
     gmail_filters.xpath("//entry").each do |entry|
 
       rules = []
@@ -207,6 +193,62 @@ class Filter
 
     end
     puts Psych.dump(final_file)
+  end
+
+  private
+
+  def add_set_to_query string, set
+    ret = string.dup.sub(/$/,' ')
+      set.each do |l|
+        case l
+        when /^-/
+          ret << "~#{l.sub(/^-/,'')} "
+        when /^(\+|\w)/
+          ret << "-~#{l.sub(/^\+/,'')} "
+        else
+          raise "#{l} is malformed"
+        end
+      end
+   return ret.strip
+  end
+
+  def return_set_from_conf string
+    Set.new(
+      case string
+      when String
+        [string]
+      when Array
+        string
+      when nil
+        nil
+      else
+        raise "state are not properly formed for this rule : #{string}"
+      end
+    )
+  end
+
+  def treat_labels_or_state actual_set, expected_set, thread_id
+    # classify labels. should have labels that look like
+    #   +label
+    #   label
+    # but should not have label that look like -label
+    #
+    # It's exactly the same thing for state. If you don't understand
+    # what is below at first read, replace 'set' with 'labels' or
+    # 'state'
+    superset = expected_set.classify {|l| l.start_with? '-'}
+    should_have_set = Set.new(superset[false]).collect! {|el| el.sub(/^\+/,'')}
+    should_not_have_set = Set.new(superset[true]).collect! {|el| el.sub(/^\-/,'')}
+
+    is_correct_set = actual_set.superset?(should_have_set) &&
+      (actual_set & (should_not_have_set)).empty?
+
+    unless is_correct_set
+      puts "-- pb on thread #{thread_id}: #{actual_set.to_a} should match #{expected_set.to_a}"
+      puts "-- putting #{(actual_set + should_have_set -  should_not_have_set).to_a}"
+      # @hc.set_labels! r["thread_id"], (actual_set + should_have_set -
+      # should_not_have_set).to_a
+    end
   end
 
 end
