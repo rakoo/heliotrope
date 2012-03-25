@@ -27,14 +27,13 @@ class Rule
   }
 
   def initialize
-    @criterias = {}
-    @actions = {}
+    @query = ""
   end
 
   def add_raw_criteria pre_field, pre_value
     if ["from", "to", "subject"].include? pre_field
       add_matching_criteria pre_field, pre_value
-    elsif pre_field == "body" || pre_field == "hasTheWord"
+    elsif pre_field == "hasTheWord"
       add_generic_criteria pre_value
     else
       raise "Unknown field : #{pre_field}"
@@ -43,56 +42,57 @@ class Rule
 
   def add_action name, value
     real_action = Marshal.load(Marshal.dump ACTION_CAPABILITIES[name])
-    if real_action["labels"]
-      if name == "label"
-        real_action["labels"].push value 
+    if name == "label"
+      unless real_action["labels"].empty?
+        real_action["labels"] = []
       end
-      real_action["labels"].uniq!
+    real_action["labels"].push value
     end
 
     real_action["state"].uniq! if real_action["state"]
+
+    # Turn the @query into a hash and put the value
     @actions = real_action
+  end
+
+  # clean out funny tokens, deduplicate labels/state, and return a cool
+  # hash
+  def finalized
+    @query.gsub!(/<(\S+?@\S+?)>/, '\1')
+    if @actions["labels"]
+      @actions["labels"].uniq!
+      @actions["labels"] = @actions["labels"][0] if @actions["labels"].size == 1
+    end
+    if @actions["state"]
+      @actions["state"].uniq!
+      @actions["state"] = @actions["state"][0] if @actions["state"].size == 1
+    end
+    return {@query => @actions}
   end
 
   private
 
+  # clean, compatible field. Add it like that to the query
   def add_matching_criteria field, string
-    proper_string =string.gsub(/\"/,'')
-    if @criterias[field]
-      @criterias[field].push proper_string
-      @criterias[field].uniq!
-    else
-      @criterias[field] = [proper_string]
-    end
+    proper_string = string.gsub(/\"/,'')
+    @query.concat(" #{field}:\"#{proper_string}\"").strip!
   end
 
   # splits with OR, and manages the list:, contains: and whatnots
   def add_generic_criteria string
-    string.split(/OR/).each do |substring|
+    new_string = string.split(/OR/).map do |substring|
       substring.strip!
       case substring
-
-      when /^list:/ # a mailing-list
-        raise "Multi rule !"
-
-      when /^from:/ # a from field
-        replacement = substring.sub(/^from:/,'')
-        add_matching_criteria "from", replacement
-        
-      when /^to:/ # a to field
-        replacement = substring.sub(/^to:/,'')
-        add_matching_criteria "to", replacement
-
+      when /^list:/ # a mailing-list. We have to replace the first . with a @
+        value = substring.sub(/^list:/,'').sub(/\./,'@')
+        " from:#{value} OR to:#{value}"
       when /^contains:/ # a contains, which is just a body: for heliotrope
-        replacement = substring.sub(/^contains:/,'')
-        add_matching_criteria "body", replacement
-
+        substring.sub(/^contains:/,'body:')
       else # it's already a usable string
-        add_matching_criteria "body", substring
-
+        substring
       end
-
-    end
+    end.join(" OR ")
+    @query.concat(new_string).strip!
   end
 
 end
@@ -161,20 +161,9 @@ class Filter
 
         match = matching_capabilities.include? prop.attributes["name"].to_s
         if match
-          if prop.attributes["value"].to_s.match /^list:/
-            replacement = prop.attributes["value"].to_s.sub(/^list:/,'').sub(/\./,'@').gsub(/<(\S+?@\S+?)>/, '\1')
-            tmprule1 = Rule.new
-            tmprule1.add_raw_criteria "from", replacement
-            rules.push tmprule1
-
-            tmprule2 = Rule.new
-            tmprule2.add_raw_criteria "to", replacement
-            rules.push tmprule2
-          else
-            tmprule = Rule.new
-            tmprule.add_raw_criteria prop.attributes["name"].to_s, prop.attributes["value"].to_s
-            rules.push tmprule
-          end
+          tmprule = Rule.new
+          tmprule.add_raw_criteria prop.attributes["name"].to_s, prop.attributes["value"].to_s
+          rules.push tmprule
         end
 
 
@@ -186,10 +175,7 @@ class Filter
         end
 
       end
-      rules.each {|rule| final_file.push rule}
-      #puts rules.inspect
-      #puts "------------------"
-      #rules.clear
+      rules.each {|rule| final_file.push rule.finalized}
 
     end
     puts Psych.dump(final_file)
@@ -261,5 +247,5 @@ end
 
 v = Filter.new opts
 
-v.import if opts[:import]
+v.import opts[:import] if opts[:import]
 v.manual_heliotrope_run if opts[:check]
