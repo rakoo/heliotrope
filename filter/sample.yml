@@ -28,3 +28,8 @@
       - friend
       - "hello"
 
+-
+  # you can use OR, but beware of the AND/OR logic. If possible, don't
+  # use it at the moment
+  sup-talk@rubyforge.org OR wmorgan@masanjin.net:
+    labels: "awesome"
