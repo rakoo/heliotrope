@@ -223,8 +223,8 @@ class Filter
     # what is below at first read, replace 'set' with 'labels' or
     # 'state'
     superset = expected_set.classify {|l| l.start_with? '-'}
-    should_have_set = Set.new(superset[false]).collect! {|el| el.sub(/^\+/,'')}
-    should_not_have_set = Set.new(superset[true]).collect! {|el| el.sub(/^\-/,'')}
+    should_have_set = Set.new(superset[false]).collect {|el| el.sub(/^\+/,'')}
+    should_not_have_set = Set.new(superset[true]).collect {|el| el.sub(/^\-/,'')}
 
     is_correct_set = actual_set.superset?(should_have_set) &&
       (actual_set & (should_not_have_set)).empty?
