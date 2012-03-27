@@ -247,5 +247,10 @@ end
 
 v = Filter.new opts
 
-v.import opts[:import] if opts[:import]
-v.manual_heliotrope_run if opts[:check]
+if opts[:import]
+  v.import opts[:import]
+elsif opts[:check]
+  v.manual_heliotrope_run
+else
+  v.manual_heliotrope_run
+end
