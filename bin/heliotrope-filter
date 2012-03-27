@@ -1,3 +1,6 @@
+#!/usr/bin/env ruby
+# encoding: UTF-8
+
 require 'heliotrope-client'
 require 'trollop'
 require 'psych'
@@ -99,18 +102,18 @@ class Rule
 
 end
 
-
 class Filter
   SEARCHABLE_FIELDS = Set.new %w(from to subject date body)
 
   def initialize opts
     @hc = HeliotropeClient.new "http://localhost:8042"
-    @conf = Psych.load_file (opts.check || File.join(opts.dir, "filtering_rules.yml"))
+    @filename = opts.check || File.join(opts.dir, "filtering_rules.yml")
+    @conf = Psych.load_file @filename
     @dry_run = opts[:dry_run]
   end
 
   def manual_heliotrope_run
-    puts "---------------"
+    puts "Checking rules in file #{@filename}"
     @conf.each do |conf|
 
       # FROM HELIOTROPE side
@@ -151,7 +154,6 @@ class Filter
         end
 
       end
-      puts "------------------"
     end
   end
 
@@ -241,7 +243,6 @@ class Filter
       (actual_set & (should_not_have_set)).empty?
 
     unless is_correct_set
-      puts "-- pb on thread #{thread_id}: #{actual_set.to_a} should match #{expected_set.to_a}"
       return actual_set + should_have_set - should_not_have_set
     end
     nil
