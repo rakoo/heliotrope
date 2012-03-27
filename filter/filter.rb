@@ -106,6 +106,7 @@ class Filter
   def initialize opts
     @hc = HeliotropeClient.new "http://localhost:8042"
     @conf = Psych.load_file (opts.check || File.join(opts.dir, "filtering_rules.yml"))
+    @dry_run = opts[:dry_run]
   end
 
   def manual_heliotrope_run
@@ -133,11 +134,21 @@ class Filter
       results = @hc.search new_query
 
       # step 2 : verify the labels and the state
+      # For each of the results, get the correct labels/state set
+      # resulting from an analysis of which should be included and which
+      # should not
 
       results.each do |r|
 
-        treat_labels_or_state Set.new(r["labels"]), expected_labels, r["thread_id"]
-        treat_labels_or_state Set.new(r["state"]), expected_state, r["thread_id"]
+        correct_labels = get_correct_set_for_thread_id Set.new(r["labels"]), expected_labels, r["thread_id"]
+        if correct_labels && !@dry_run
+          @hc.set_labels!  r["thread_id"], correct_labels.to_a
+        end
+
+        correct_state = get_correct_set_for_thread_id Set.new(r["state"]), expected_state, r["thread_id"]
+        if correct_state && !@dry_run
+          @hc.set_thread_state! r["thread_id"], correct_state.to_a
+        end
 
       end
       puts "------------------"
@@ -213,7 +224,7 @@ class Filter
     )
   end
 
-  def treat_labels_or_state actual_set, expected_set, thread_id
+  def get_correct_set_for_thread_id actual_set, expected_set, thread_id
     # classify labels. should have labels that look like
     #   +label
     #   label
@@ -231,10 +242,9 @@ class Filter
 
     unless is_correct_set
       puts "-- pb on thread #{thread_id}: #{actual_set.to_a} should match #{expected_set.to_a}"
-      puts "-- putting #{(actual_set + should_have_set -  should_not_have_set).to_a}"
-      # @hc.set_labels! r["thread_id"], (actual_set + should_have_set -
-      # should_not_have_set).to_a
+      return actual_set + should_have_set - should_not_have_set
     end
+    nil
   end
 
 end
@@ -243,6 +253,7 @@ opts = Trollop::options do
   opt :dir, "Base directory for the rules file", :default => "."
   opt :check, "Run a manual check of this file's rules", :type => :string
   opt :import, "Import from gmail's XML export file", :type => :string
+  opt :dry_run, "Dry run -- do not modify the mail store", :default => true
 end
 
 v = Filter.new opts
