@@ -158,14 +158,12 @@ class Filter
     gmail_filters = Nokogiri::Slop(File.open(filename))
     gmail_filters.xpath("//entry").each do |entry|
 
-      rules = []
+      rule = Rule.new
       entry.xpath("./property").each do |prop|
 
         match = matching_capabilities.include? prop.attributes["name"].to_s
         if match
-          tmprule = Rule.new
-          tmprule.add_raw_criteria prop.attributes["name"].to_s, prop.attributes["value"].to_s
-          rules.push tmprule
+          rule.add_raw_criteria prop.attributes["name"].to_s, prop.attributes["value"].to_s
         end
 
 
@@ -173,11 +171,11 @@ class Filter
         if action
           action_name = prop.attributes["name"].to_s
           action_value = prop.attributes["value"].to_s
-          rules.each {|rule| rule.add_action action_name, action_value}
+          rule.add_action action_name, action_value
         end
 
       end
-      rules.each {|rule| final_file.push rule.finalized}
+      final_file.push rule.finalized
 
     end
     puts Psych.dump(final_file)
