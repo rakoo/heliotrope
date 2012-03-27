@@ -91,7 +91,9 @@ class Rule
       else # it's already a usable string
         substring
       end
-    end.join(" OR ")
+    end.join(" OR ").strip
+
+    new_string.sub!(/(.*)/, '(\1)') if /OR/.match new_string
     @query.concat(new_string).strip!
   end
 
