@@ -190,9 +190,9 @@ class Filter
       set.each do |l|
         case l
         when /^-/
-          ret << "~#{l.sub(/^-/,'')} "
+          ret.concat "~#{l.sub(/^-/,'')} "
         when /^(\+|\w)/
-          ret << "-~#{l.sub(/^\+/,'')} "
+          ret.concat "-~#{l.sub(/^\+/,'')} "
         else
           raise "#{l} is malformed"
         end
