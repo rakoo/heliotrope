@@ -197,7 +197,7 @@ private
   def decode_mime_parts part, preferred_type, level=0
     if part.multipart?
       if mime_type_for(part) =~ /multipart\/alternative/
-        target = part.body.parts.find { |p| mime_type_for(p).index(preferred_type) } || part.body.first
+        target = part.body.parts.find { |p| mime_type_for(p).index(preferred_type) } || part.body.parts.first
         if target # this can be nil
           decode_mime_parts target, preferred_type, level + 1
         else
