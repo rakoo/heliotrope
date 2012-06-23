@@ -292,12 +292,28 @@ class HeliotropeServer < Sinatra::Base
     first = messageinfos.find { |mi, level| mi[:subject] }[0]
 
     header("Thread: " + first[:subject]) +
+      thread_to_html(messageinfos) +
+      footer
+  end
+
+  def thread_to_html messageinfos
       messageinfos.map do |mi, level|
         %{<div style="padding-left: #{level}em">} +
           messageinfo_to_html(mi) +
           "</div>"
-      end.join +
-      footer
+      end.join
+  end
+
+  def thread_to_html_with_highlight messageinfos, message_id
+      messageinfos.inject("") do |result, elm|
+        mi, level = elm
+        result << %{<div style="padding-left: #{level}em">}
+        result << "<mark>" if mi[:message_id] == message_id
+        result << messageinfo_to_html(mi)
+        result << "</mark>" if mi[:message_id] == message_id
+        result << "</div>"
+        result
+      end
   end
 
   def get_thread_summary thread_id
@@ -339,12 +355,17 @@ class HeliotropeServer < Sinatra::Base
     message_id = message_id.to_i
     message = get_message_summary(message_id) or raise Sinatra::NotFound, "can't find message #{message_id.inspect}"
 
+    messageinfos = get_thread_summary message[:thread_id]
+
     begin
       threadinfo = @metaindex.load_threadinfo(message[:thread_id])
       docids = threadinfo[:structure].flatten
       idx = docids.index(message_id) + 1
       idx += 1 while(docids[idx] && (docids[idx] < 0))
-      header(message[:subject]) + message_to_html(message, docids[idx]) + footer
+      header(message[:subject]) +
+        thread_to_html_with_highlight(messageinfos, message_id) + "<hr />" +
+        message_to_html(message, parent_id) +
+        footer
     rescue Heliotrope::InvalidMessageError => e
       raise RequestError, "can't parse message #{message_id.inspect}: #{e.message}"
     end
