@@ -359,10 +359,10 @@ class HeliotropeServer < Sinatra::Base
 
     begin
       threadinfo = @metaindex.load_threadinfo(message[:thread_id])
-      message_levels = []
-      parent_level = 0
 
       # hackery to find message's parent's message_id
+      message_levels = []
+      parent_level = 0
       messageinfos.each do |mi, level|
         message_levels << [level, mi[:fake] || mi[:message_id]]
         if mi[:message_id] == message_id
@@ -373,9 +373,10 @@ class HeliotropeServer < Sinatra::Base
       # message_levels now looks somewhat like
       # [[0, nil], [1, 2342], [1, nil], [2, 2347]]
       # with the last one being current message => parent_level == 1
-      parent_id = message_levels.select do |tuple|
+      parent_id_tuple = message_levels.select do |tuple|
         tuple[0] == parent_level
-      end.last[1]
+      end.last
+      parent_id = parent_id_tuple ? parent_id_tuple[1] : nil
 
       header(message[:subject]) +
         thread_to_html_with_highlight(messageinfos, message_id) + "<hr />" +
