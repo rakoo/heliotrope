@@ -33,15 +33,7 @@ class Message
     raise InvalidMessageError, "Msgid looks empty. Ending operations here." if (@msgid.nil? || @msgid.empty?)
     @safe_msgid = munge_msgid @msgid
 
-    # From can contain multiple mailboxes. If it does, it MUST contain a
-    # Sender: field, which we will use. If it does not, it doesn't respect
-    # RFC5322, but we will use the first email address of the From: header.
-    # Mail::FromField.from returns an array of addresses, not a String
-    @from = if @m.from.size > 1
-      @m.sender ? @m.sender.first : @m.from.first
-    else
-      Person.from_string @m.fetch_header(:from)
-    end
+    @from = Person.from_string @m.fetch_header(:from)
 
     @sender = begin
       # Mail::SenderField.sender returns an array, not a String
