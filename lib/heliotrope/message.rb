@@ -51,7 +51,7 @@ class Message
     @to = Person.many_from_string(@m.fetch_header(:to))
     @cc = Person.many_from_string(@m.fetch_header(:cc))
     @bcc = Person.many_from_string(@m.fetch_header(:bcc))
-    @subject =  @m.subject "" # nil subject is defaulted to empty
+    @subject =  (@m.subject || "")
     @reply_to = Person.from_string(@m.fetch_header(:reply_to))
 
     # same as message_id : we must use message_ids to get them without <
