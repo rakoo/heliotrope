@@ -359,9 +359,24 @@ class HeliotropeServer < Sinatra::Base
 
     begin
       threadinfo = @metaindex.load_threadinfo(message[:thread_id])
-      docids = threadinfo[:structure].flatten
-      idx = docids.index(message_id) + 1
-      idx += 1 while(docids[idx] && (docids[idx] < 0))
+      message_levels = []
+      parent_level = 0
+
+      # hackery to find message's parent's message_id
+      messageinfos.each do |mi, level|
+        message_levels << [level, mi[:fake] || mi[:message_id]]
+        if mi[:message_id] == message_id
+          parent_level = level - 1
+          break
+        end
+      end
+      # message_levels now looks somewhat like
+      # [[0, nil], [1, 2342], [1, nil], [2, 2347]]
+      # with the last one being current message => parent_level == 1
+      parent_id = message_levels.select do |tuple|
+        tuple[0] == parent_level
+      end.last[1]
+
       header(message[:subject]) +
         thread_to_html_with_highlight(messageinfos, message_id) + "<hr />" +
         message_to_html(message, parent_id) +
@@ -478,7 +493,7 @@ private
     Heliotrope::Message.new(rawbody).parse!
   end
 
-  def message_to_html message, next_messageid
+  def message_to_html message, parent_id
     mid = message[:message_id]
     m = load_actual_message message[:loc]
     parts = m.mime_parts "text/html"
@@ -487,8 +502,7 @@ private
     cids = {}
     parts.each_with_index { |(type, fn, id, content), i| cids[id] = i if id }
 
-    s = "<div>#{link_to_threadview message[:thread_id], "<< back to thread"}"
-    s += " | #{link_to_messageview next_messageid, "next message in thread >>"}" if next_messageid
+    s = parent_id ? "<div>#{link_to_parent parent_id, "^ go to parent"}" : ""
     s += "</div>"
     s += %{<div style="padding-top: 1em">From: #{link_to_search m.from.email.downcase, m.from.to_email_address}</div>}
     s += "<div>To: #{m.to.map { |p| link_to_search p.email.downcase, p.to_email_address }.join(", ")}</div>"
@@ -605,6 +619,10 @@ private
 
   def link_to_raw message_id, text
     %{<a href="/message/#{message_id}/raw">#{escape_html text}</a>}
+  end
+
+  def link_to_parent parent_id, text
+    %{<a href="/message/#{parent_id}">#{escape_html text}</a>}
   end
 
   def inline_image_link message_id, part_id; "/message/#{message_id}/part/#{part_id}" end
