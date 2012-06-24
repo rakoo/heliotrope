@@ -105,5 +105,8 @@ time.
 JSON API SPEC
 -------------
 
-Heliotrope features an complete JSON-over-HTTP API. Documentation coming
-soon! For now, you can reverse engineer lib/heliotrope-client.rb.
+Heliotrope features an complete JSON-over-HTTP API. The beginning of a
+documentation lives in
+https://github.com/rakoo/heliotrope/wiki/A-brief-overview-of-the-heliotrope-api.
+
+You can also reverse-engineer lib/heliotrope-client.rb
