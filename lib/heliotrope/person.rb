@@ -3,7 +3,7 @@
 module Heliotrope
 class Person
 
-  AT_RE = "\s+(?:@|at|AT)\s+"
+  AT_RE = "\\s+(?:@|at|AT)\\s+"
 
   def initialize name, email, handle
     @name = name
@@ -37,7 +37,7 @@ class Person
       [nil, $1, $2]
     when /((\S+?)#{AT_RE}\S+)/
       [nil, $1, $2]
-    when /((\S+?)#{AT_RE}(?:\S+)?)\s+\((\D+?)\)/
+    when /((\S+?)#{AT_RE}(?:\S+))\s+\((.+?)\)/
       [$3, $1, $2]
     else
       [nil, string, nil] # i guess...
