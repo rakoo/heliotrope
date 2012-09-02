@@ -39,6 +39,47 @@ class HeliotropeClient
     @cache[[:message, id, mime_type_pref]] ||= get_json("message/#{id}", :mime_type_pref => mime_type_pref)
   end
 
+  def bulk type, ids, params={}
+    fetch_ids = ids
+
+    case type
+    when :message_info
+      fetch_ids.delete_if {|id| !@cache[[:message_info, id]].nil?}
+
+      unless fetch_ids.empty?
+        result = get_json "bulk/messages", :ids => fetch_ids, :only_infos => true
+        # result #=> [{1=><messageinfos>, 2=><messageinfos>...}]
+        result["messageinfos"].each do |messageinfos|
+          @cache[[:message_info, messageinfos["message_id"].to_i]] ||= messageinfos
+        end
+      end
+
+      ids.map {|id| messageinfos(id)}
+
+    when :message
+      params[:mime_type_pref] ||= "text/plain"
+      fetch_ids.delete_if {|id| !@cache[[:message, id, params[:mime_type_pref]]].nil?}
+
+      unless fetch_ids.empty?
+        result = get_json "bulk/messages", :ids => fetch_ids, :only_infos => false
+        # result #=> [{1=><messageinfos>, 2=><messageinfos>...}]
+        result["messages"].each do |messageinfos|
+          @cache[[:message, messageinfos["message_id"].to_i, params[:mime_type_pref]]] ||= messageinfos
+        end
+      end
+
+      ids.map {|id| message(id, params[:mime_type_pref])}
+
+    when :thread_info
+      get_json("bulk/threadinfos", :ids => ids)["threads"].map { |thread| thread["messageinfos"]}
+
+    when :thread
+      get_json("bulk/threads", :ids => ids)["threads"]
+
+    end
+
+  end
+
   def send_message message, opts={}
     opts[:labels] ||= []
     opts[:state] ||= []

@@ -337,17 +337,19 @@ class HeliotropeServer < Sinatra::Base
 
   get "/message/:message_id.json" do |message_id|
     content_type :json
-    message_id = message_id.to_i
+    get_json_message(message_id.to_i, params[:only_infos]).merge(:response => :ok).to_json
+  end
+
+  def get_json_message message_id, only_infos = false
     messageinfo = get_message_summary message_id
-    message = load_actual_message messageinfo[:loc]
 
     ## merge the messageinfo (which has state, etc) with the actual content of the message
-    if params[:only_infos]
-      result = messageinfo
+    if only_infos
+      messageinfo
     else
-      result = messageinfo.merge message.to_h(message_id, params["mime_type_pref"] || "text/html")
+      message = load_actual_message messageinfo[:loc]
+      messageinfo.merge message.to_h(message_id, params["mime_type_pref"] || "text/html")
     end
-    result.merge(:response => :ok).to_json
   end
 
   get "/message/:message_id" do |message_id|
@@ -479,7 +481,45 @@ class HeliotropeServer < Sinatra::Base
     { :response => :ok, :contacts => contacts }.to_json
   end
 
+  post "/bulk/:type.json" do |type|
+    content_type :json
+
+    request.body.rewind
+    ids = CGI.parse(CGI.unescape(request.body.read))["ids"][0]
+    # Expected : ids = "[1,2,3,4]"
+    raise RequestError, "needs ids" if ids.nil?
+    raise RequestError, "bad format for ids" unless ids.match(/^\[.*\]$/)
+
+    ids = ids[1..-2].split(/,/).map {|id| id.to_i}
+
+    data = case type
+    when "messages"
+      ids.map {|elem| fetch_unless_null {get_json_message(elem.to_i, false)}}
+    when "messageinfos"
+      ids.map {|elem| fetch_unless_null {get_json_message(elem.to_i, true)}}
+    when "threads"
+      ids.map {|elem| fetch_unless_null {get_thread_summary(elem.to_i)}}
+    when "threadinfos"
+      ids.map {|elem| fetch_unless_null {get_threadinfo(elem.to_i)}}
+    end
+
+    {
+      type => data,
+      :response => :ok
+    }.to_json
+  end
+
+
 private
+
+  # For bulk methods, if the message/thread doesn't exist, skip it and
+  # go to next one instead of blocking everything
+  def fetch_unless_null
+    begin
+      yield
+    rescue Sinatra::NotFound
+    end
+  end
 
   def parse_json_set val
     begin
