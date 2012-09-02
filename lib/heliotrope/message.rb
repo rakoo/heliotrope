@@ -14,6 +14,13 @@ module Mail
       sym = field.to_sym
       self[sym] ? self[sym].to_s : nil
     end
+
+    # Make sure the message has valid message ids for the message, and
+    # fetch them
+    def fetch_message_ids field
+      self[field] ? self[field].message_ids || [self[field].message_id] : []
+    end
+
   end
 end
 
@@ -56,8 +63,12 @@ class Message
 
     # same as message_id : we must use message_ids to get them without <
     # and >
-    @refs = @m[:references].nil? ? [] : @m[:references].message_ids
-    in_reply_to = @m[:in_reply_to].nil? ? [] : @m[:in_reply_to].message_ids
+    begin
+      @refs = @m.fetch_message_ids(:references)
+      in_reply_to = @m.fetch_message_ids(:in_reply_to)
+    rescue Mail::Field::FieldError => e
+      raise InvalidMessageError, e.message
+    end
     @refs += in_reply_to unless @refs.member?(in_reply_to.first)
     @safe_refs = @refs.nil? ? [] : @refs.map { |r| munge_msgid(r) }
 
