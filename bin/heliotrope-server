@@ -677,6 +677,11 @@ EOS
   opt :port, "Port to listen on", :default => 8042
   opt :dir, "Base directory for all index files", :default => "."
   opt :mode, "Runtime mode", :default => "development"
+
+  opt :with_imap, "Launch IMAP server", :default => false
+  opt :imap_port, "Port to listen to for IMAP", :default => 10142
+  opt :imap_user, "User for IMAP", :default => "anon"
+  opt :imap_pass, "Password for IMAP", :default => "anon"
 end
 
 FileUtils.mkdir_p opts.dir
@@ -709,7 +714,7 @@ server = HeliotropeServer.new metaindex, zmbox, hooks
 
 app = if opts.mode == "development"
   Rack::Builder.new do
-    #use Rack::CommonLogger, $stdout
+    use Rack::CommonLogger, $stdout
     use Rack::ShowExceptions
     use Rack::Lint
     run server
@@ -720,7 +725,7 @@ end
 
 ## yes, we have to do this ourselves here. thanks, rack. no, i don't want to
 ## run with your crummy set of commandline options.
-handler = Rack::Handler.default
+handler = Rack::Handler.get("Thin")
 trap(:INT) do
   if handler.respond_to?(:shutdown)
     handler.shutdown
@@ -730,5 +735,11 @@ trap(:INT) do
 end
 
 puts "MetaIndex contains #{metaindex.size} messages."
+
+if opts[:with_imap]
+  require "heliotrope/imap"
+  imap = Heliotrope::IMAPServer.new opts, metaindex, zmbox
+  imap.run
+end
 
 handler.run app, :Port => opts.port, :Host => opts.host
