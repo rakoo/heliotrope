@@ -37,8 +37,7 @@ module Heliotrope
 
     def session=(session)
       @session = session
-      @metaindex = session.metaindex
-      @zmbox = session.zmbox
+      @mail_store = session.mail_store
     end
 
     def send_tagged_ok(code = nil)
@@ -206,16 +205,12 @@ module Heliotrope
     def exec
       begin
 
-        # count is done by searching for the mailbox name
-        query = Heliotrope::Query.new "body", @mailbox_name
-        @metaindex.set_query query
-        results = @metaindex.get_some_results @metaindex.size
-        count = results.size
+        mailbox_status = @mail_store.get_mailbox_status @mailbox_name
 
-        @session.send_data("%d EXISTS", count)
-        @session.send_data("%d RECENT", 0)
-        @session.send_ok("[UIDVALIDITY %d] UIDs valid", 1)
-        @session.send_ok("[UIDNEXT %d] Predicted next UID", @metaindex.size + 1)
+        @session.send_data("%d EXISTS", mailbox_status[:count])
+        @session.send_data("%d RECENT", mailbox_status[:recent])
+        @session.send_ok("[UIDVALIDITY %d] UIDs valid", mailbox_status[:uidvalidity])
+        @session.send_ok("[UIDNEXT %d] Predicted next UID", mailbox_status[:uidnext])
         @session.send_data("FLAGS (\\Answered \\Flagged \\Deleted \\Seen \\Draft)")
         @session.send_ok("[PERMANENTFLAGS (\\Answered \\Flagged \\Draft \\Seen \\Deleted \\*)] Limited")
         @session.send_queued_responses
@@ -346,16 +341,13 @@ module Heliotrope
       end
       re = Regexp.new("\\A" + pat + "\\z", nil, "n")
 
-      mailboxes = @metaindex.all_labels.select { |name| re.match(name) } + 
-        SPECIAL_MAILBOXES.keys.compact
 
       # The result should look like
       # [
       #   [folder1, FLAGS for folder1],
       #   [folder2, FLAGS for folder2]
       # ]
-      full_mailboxes = mailboxes.map {|name| [name, ""]}
-      full_mailboxes.sort_by { |i| i[0] }.each do |name, flags|
+      @mail_store.mailboxes.sort_by { |i| i[0] }.each do |name, flags|
         @session.send_data("%s (%s) \"/\" %s",
                            @name, flags, quoted(name))
       end

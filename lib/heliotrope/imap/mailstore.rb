@@ -54,44 +54,24 @@ module Heliotrope
 		# this Hash relates IMAP keywords with their Heliotrope
 		# counterparts
 
-    attr_reader :config, :path, :mailbox_db, :mailbox_db_path
-    attr_reader :plugins
-    attr_reader :uid_seq, :uidvalidity_seq, :mailbox_id_seq
-		attr_accessor :current_mailbox, :uid_store
-
     def initialize(metaindex, zmbox)
       #@logger = @config[:logger]
 
-      #@path = File.expand_path(@config[:data_dir])
-      #FileUtils.mkdir_p(@path)
-      #uidvalidity_seq_path = File.expand_path("uidvalidity.seq", @path)
-      #@uidvalidity_seq = Sequence.new(uidvalidity_seq_path)
-
-      #lock_path = File.expand_path("lock", @path)
-      #@lock = File.open(lock_path, "w+")
-      #@lock_count = 0
-
-			#if @uidvalidity_seq.current.nil?
-				#@uidvalidity_seq.current = 1
-			#end
-
-			## this is used to fake the imap client exists so that it can
-			## select it
-			#@fakemailboxes = []
+      # When creating a mailbox, it doesn't exist as a label. We add it
+      # to the fakemailboxes so that it can be selected by the client,
+      # but it should be deleted afterwards (not done yet)
+			@fakemailboxes = []
 
 			#@current_mailbox = ""
 
-			## UIDs ore unique to a mailbox, but this is incompatible with
-			## heliotrope, where message_ids are unique through the whole mailstore
-			#@uid_store = LevelDB::DB.new File.join(@path, "uidstore")
       @metaindex = metaindex
       @zmbox = zmbox
     end
 
     def mailboxes
-			labels = Set.new(@heliotropeclient.labels)
+			labels = @metaindex.all_labels
 
-			#Format to return: 
+			#Format to return:
 			#[
 			# ["label1", "FLAGS for label1"],
 			# ["label2", "FLAGS for label2"],
@@ -99,11 +79,7 @@ module Heliotrope
 
 			out = []
 			labels.each do |label|
-				out << ["\~"+label, ""]	unless SPECIAL_MAILBOXES.value?(label)
-			end
-
-			SPECIAL_MAILBOXES.keys.each do |m|
-				out << [m, ""]
+				out << [SPECIAL_MAILBOXES.key(label) || "\~" + label, ""]
 			end
 
 			@fakemailboxes.each do |m|
@@ -115,8 +91,8 @@ module Heliotrope
 
     def create_mailbox(name, query = nil)
 			all_mailboxes = mailboxes
-			format_label_to_imap!(name)
-			unless all_mailboxes.assoc(name).nil? 
+			validate_imap_format!(name)
+			unless all_mailboxes.assoc(name).nil?
 				raise MailboxExistError.new("#{name} already exists")
 			end
 			@fakemailboxes << [name, ""]
@@ -126,11 +102,11 @@ module Heliotrope
 
 
     def delete_mailbox(name)
-			format_label_to_imap!(name)
+			validate_imap_format!(name)
 			raise MailboxError.new("Can't delete a special mailbox") if (SPECIAL_MAILBOXES.key?(name) or MESSAGE_IMMUTABLE_STATE.include?(name))
 
 			all_mailboxes = mailboxes
-			if all_mailboxes.assoc(name).nil? 
+			if all_mailboxes.assoc(name).nil?
 				raise MailboxExistError.new("#{name} doesn't exist")
 			end
 
@@ -190,28 +166,39 @@ module Heliotrope
 
     def get_mailbox_status(mailbox_name, read_only = false)
 
-			format_label_to_imap!(mailbox_name)
-			mailbox_status = get_mailbox(mailbox_name).status
-			mailbox_status.uidvalidity = @uidvalidity_seq.current
+			validate_imap_format!(mailbox_name)
 
-			return mailbox_status
+			# http://www.faqs.org/rfcs/rfc3501.html : mailbox status has these
+			# fields : 
+			# - MESSAGES : counts the number of messages in this mailbox
+			# - RECENT : number of messages with the \Recent FLAG
+			# - UIDNEXT : uid that will be assigned to the next mail to be stored
+			# - UIDVALIDITY : int. If it has changed between 2 sessions, it means
+			# the mailbox isn't valid, and the client needs to redownload messages
+			# from the beginning
+			# - UNSEEN : number of messages without the \Seen FLAG
+
+      {
+        :recent => 0,
+        :uidnext => @metaindex.size + 1,
+        :count => mailbox_name == "All Mail" ? @metaindex.size : messages_count(mailbox_name),
+        :unseen => messages_count(mailbox_name, true),
+        :uidvalidity => 1 #FIXME
+      }
     end
 
     def get_mailbox(name)
-			format_label_to_imap!(name)
-			all_mailboxes = mailboxes
-			mailbox_info = all_mailboxes.assoc(name)
+			validate_imap_format!(name)
+			mailbox_info = mailboxes[name]
 			if mailbox_info.nil? # mailbox doesn't exist
 				raise MailboxExistError.new("Can't select #{name} : this mailbox doesn't exist")
 			elsif /\\Noselect/.match(mailbox_info.last) # mailbox isn't selectable
 				raise NotSelectableMailboxError.new("Can't select #{name} : not a selectable mailbox")
 			end
 
-			return HeliotropeFakeMailbox.new(self, name, 
-					{
-						"heliotrope-client" => @heliotropeclient,
-						"logger" => @logger
-					})
+      # simply return mailbox's name because there is no "Mailbox"
+      # object
+      name
     end
 
     def delete_mail(mailbox, seqno)
@@ -224,10 +211,10 @@ module Heliotrope
 			out = []
 
 			mailbox_name = mailbox.name
-			format_label_to_imap!(mailbox_name)
+			validate_imap_format!(mailbox_name)
 			all_mailboxes = mailboxes
 			raise MailboxExistError.new("[TRYCREATE] #{mailbox_name} doesn't exist") if
-		 		all_mailboxes.assoc(mailbox_name).nil? 
+		 		all_mailboxes.assoc(mailbox_name).nil?
 			raise NotSelectableMailboxError.new("#{mailbox_name} is not selectable") if
 				all_mailboxes.assoc(mailbox_name).include?("\\Noselect")
 
@@ -247,18 +234,12 @@ module Heliotrope
 
 		def append_mail(message, mailbox_name, flags)
 			all_mailboxes = mailboxes
-			format_label_to_imap! mailbox_name
+			validate_imap_format! mailbox_name
 			raise MailboxExistError.new("[TRYCREATE] #{mailbox_name} doesn't exist") if
 		 		all_mailboxes.assoc(mailbox_name).nil?
 
 			get_mailbox(mailbox_name).append_mail_to_mailbox message, flags
 		end
-
-    def open_backend(*args, &block)
-      synchronize do
-        @backend.open(*args, &block)
-      end
-    end
 
     def get_next_mailbox_id
       return @mailbox_id_seq.next
@@ -326,7 +307,18 @@ module Heliotrope
 
 		private
 
-		def format_label_to_imap!(label)
+		def messages_count mailbox_name, with_unread=false
+      search_label = with_unread ? "~unread " + mailbox_name : mailbox_name
+
+      # counting is done via searching
+      query = Heliotrope::Query.new "body", mailbox_name
+      @metaindex.set_query query
+      results = @metaindex.get_some_results @metaindex.size
+      results.size
+		end
+
+
+		def validate_imap_format!(label)
 			unless /^\~/.match(label) or SPECIAL_MAILBOXES.key?(label)
 				raise NoMailboxError.new("#{label} doesn't exist or is invalid")
 			end

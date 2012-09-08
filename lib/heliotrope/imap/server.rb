@@ -8,7 +8,7 @@ module Heliotrope
     def initialize opts, metaindex, zmbox
       @config = {:port => opts[:imap_port], :user => opts[:imap_user], :password => opts[:imap_pass]}
 
-      @mail_store = MailStore.new metaindox, zmbox
+      @mail_store = MailStore.new metaindex, zmbox
     end
 
     def run
