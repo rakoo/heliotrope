@@ -78,7 +78,7 @@ module Heliotrope
             break
           rescue StandardError => e
             send_tagged_no(cmd.tag, "%s failed - %s", cmd.name, e)
-            p e
+            puts e.backtrace
           end
           #puts "; processed #{cmd.tag} #{cmd.name} from #{@sock.peeraddr}"
         end
