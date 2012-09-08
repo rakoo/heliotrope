@@ -29,22 +29,6 @@ require "leveldb"
 
 module Heliotrope
 
-  module DataFormat
-    module_function
-
-    def quoted(s)
-      if s.nil?
-        return "NIL"
-      else
-        return format('"%s"', s.to_s.gsub(/[\r\n]/, "").gsub(/[\\"]/n, "\\\\\\&"))
-      end
-    end
-
-    def literal(s)
-      return format("{%d}\r\n%s", s.to_s.length, s)
-    end
-  end
-
   class MailStore
 
 		MESSAGE_IMMUTABLE_STATE = Set.new %w(attachment signed encrypted draft)
