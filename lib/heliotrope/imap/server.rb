@@ -6,48 +6,31 @@ module Heliotrope
   class IMAPServer
 
     def initialize opts, metaindex, zmbox
-      @port = opts[:imap_port]
-      @user = opts[:imap_user]
-      @pass = opts[:imap_pass]
+      @config = {:port => opts[:imap_port], :user => opts[:imap_user], :password => opts[:imap_pass]}
 
-      @metaindex = metaindex
-      @zmbox = zmbox
+      @mail_store = MailStore.new metaindox, zmbox
     end
 
     def run
-      begin
-        trap("INT", "IGNORE")
-        Signal.trap("TERM", &method(:terminate))
-        Signal.trap("INT", &method(:terminate))
-        @mail_store = MailStore.new(@config)
-        start_server @port
-      rescue Exception => e
-        STDERR.printf("imaptrope: %s\n", e)
-        unless e.kind_of?(StandardError)
-          raise
+      server = TCPServer.new @config[:port]
+      # Yo dawg, I heard you like Threads and loops
+      # Spawn one thread that will be in charge of listening, which
+      # means looping. In this loop, create a new thread per client and
+      # treat it
+      Thread.start do
+        loop do
+          Thread.start(server.accept) do |sock|
+            loop do
+              p "open"
+              configure_socket(sock)
+              Session.new(sock, @mail_store,  @config, self).start
+            end
+          end
         end
-        exit(1)
       end
     end
 
     private
-
-    def start_server(port)
-      server = TCPServer.new port
-      begin
-        loop do
-          sock = server.accept
-          configure_socket(sock)
-          if @sessions.length >= @max_clients
-            reject_client(sock)
-            next
-          end
-          start_session(sock)
-        end
-      ensure
-        server.close
-      end
-    end
 
     def configure_socket(sock)
       sock.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
@@ -59,14 +42,6 @@ module Heliotrope
       end
     end
 
-    def start_session(socket)
-      session = Session.new(@config, socket, @mail_store, self)
-      @sessions[Thread.current] = session
-      begin
-        session.start
-      ensure
-        @sessions.delete(Thread.current)
-      end
-    end
+  end
 
 end

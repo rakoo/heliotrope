@@ -75,83 +75,33 @@ module Heliotrope
     attr_reader :uid_seq, :uidvalidity_seq, :mailbox_id_seq
 		attr_accessor :current_mailbox, :uid_store
 
-    def initialize(config)
-      super()
-      @config = config
-      @logger = @config[:logger]
-			@heliotropeclient = HeliotropeClient.new "http://localhost:8042"
+    def initialize(metaindex, zmbox)
+      #@logger = @config[:logger]
 
-      @path = File.expand_path(@config[:data_dir])
-      FileUtils.mkdir_p(@path)
-      uidvalidity_seq_path = File.expand_path("uidvalidity.seq", @path)
-      @uidvalidity_seq = Sequence.new(uidvalidity_seq_path)
+      #@path = File.expand_path(@config[:data_dir])
+      #FileUtils.mkdir_p(@path)
+      #uidvalidity_seq_path = File.expand_path("uidvalidity.seq", @path)
+      #@uidvalidity_seq = Sequence.new(uidvalidity_seq_path)
 
-      lock_path = File.expand_path("lock", @path)
-      @lock = File.open(lock_path, "w+")
-      @lock_count = 0
+      #lock_path = File.expand_path("lock", @path)
+      #@lock = File.open(lock_path, "w+")
+      #@lock_count = 0
 
-			if @uidvalidity_seq.current.nil?
-				@uidvalidity_seq.current = 1
-			end
+			#if @uidvalidity_seq.current.nil?
+				#@uidvalidity_seq.current = 1
+			#end
 
-			# this is used to fake the imap client exists so that it can
-			# select it
-			@fakemailboxes = []
+			## this is used to fake the imap client exists so that it can
+			## select it
+			#@fakemailboxes = []
 
-			@current_mailbox = ""
+			#@current_mailbox = ""
 
-			# UIDs ore unique to a mailbox, but this is incompatible with
-			# heliotrope, where message_ids are unique through the whole mailstore
-			@uid_store = LevelDB::DB.new File.join(@path, "uidstore")
-    end
-
-    def close
-      @lock.close
-    end
-
-    def teardown
-#@backend.teardown
-    end
-
-    def lock
-      mon_enter
-      if @lock_count == 0
-        @lock.flock(File::LOCK_EX)
-        #@backend.standby
-      end
-      @lock_count += 1
-    end
-
-    def unlock
-      @lock_count -= 1
-      if @lock_count == 0 && !@lock.closed?
-        #@backend.relax
-        @lock.flock(File::LOCK_UN)
-      end
-      mon_exit
-    end
-
-    def synchronize
-      lock
-      begin
-        yield
-      ensure
-        unlock
-      end
-    end
-
-    def write_last_peeked_uids
-# don't need this
-      #return if @last_peeked_uids.empty?
-      #@mailbox_db.transaction do
-        #@last_peeked_uids.each do |name, uid|
-          #mailbox = @mailbox_db["mailboxes"][name]
-          #if mailbox && mailbox["last_peeked_uid"] < uid
-            #mailbox["last_peeked_uid"] = uid
-          #end
-        #end
-        #@last_peeked_uids.clear
-      #end
+			## UIDs ore unique to a mailbox, but this is incompatible with
+			## heliotrope, where message_ids are unique through the whole mailstore
+			#@uid_store = LevelDB::DB.new File.join(@path, "uidstore")
+      @metaindex = metaindex
+      @zmbox = zmbox
     end
 
     def mailboxes
