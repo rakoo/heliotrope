@@ -26,6 +26,7 @@
 require "set"
 require "json"
 require "leveldb"
+require "lrucache"
 
 module Heliotrope
 
@@ -66,6 +67,7 @@ module Heliotrope
 
       @metaindex = metaindex
       @zmbox = zmbox
+      @cache = LRUCache.new :max_size => 100
     end
 
     def mailboxes
@@ -189,10 +191,13 @@ module Heliotrope
 
     def get_mailbox(name)
 			validate_imap_format!(name)
-			mailbox_info = mailboxes[name]
-			if mailbox_info.nil? # mailbox doesn't exist
+
+      # [["label", "FLAGS"]] becomes {"label" => "FLAGS"}
+      hashed_mailboxes = Hash[mailboxes]
+
+			if hashed_mailboxes[name].nil? # mailbox doesn't exist
 				raise MailboxExistError.new("Can't select #{name} : this mailbox doesn't exist")
-			elsif /\\Noselect/.match(mailbox_info.last) # mailbox isn't selectable
+			elsif /\\Noselect/.match(hashed_mailboxes[name]) # mailbox isn't selectable
 				raise NotSelectableMailboxError.new("Can't select #{name} : not a selectable mailbox")
 			end
 
@@ -289,33 +294,80 @@ module Heliotrope
 		def get_uids key; @uid_store.member?(key) ? Marshal.load(@uid_store[key]).to_hash : {} end
 		def write_uids key, value; @uid_store[key] = Marshal.dump(value.to_hash) end
 
-		def search_in_heliotrope pattern
-			total_size = @heliotropeclient.count pattern
-			iterator, rest = total_size.divmod(300)
-			threadinfos = []
-			
-			if iterator > 0
-				(0..iterator+1).each do |i|
-					threadinfos << @heliotropeclient.search(pattern, 300, 300*i)
+    def fetch_mails_seq(mailbox_name, sequence_set)
+
+      # sequence_set can contain any mix of arrays, ranges and integer.
+      # Transform it to something usable
+			seq_ids = sequence_set.map do |atom|
+				if atom.respond_to?(:last) && atom.respond_to?(:first)
+					# transform Range to Array
+					begin
+						if atom.last == -1 # fetch all
+							atom.first .. messages_count(mailbox_name)
+						else
+							atom
+						end
+					end.to_a
+        elsif atom.respond_to?(:to_a)
+					atom.to_a
+        elsif atom.integer?
+          [atom]
+        else
+          raise "unknown atom : #{atom}"
 				end
-			else
-				threadinfos << @heliotropeclient.search(pattern, rest, 0)
-			end
-				
-			threadinfos.flatten
-		end
+			end.flatten
+
+      message_ids = seq_ids.map {|id| build_sequence_set(mailbox_name)[id]}
+
+      fetch_internal(message_ids).map do |message|
+        message.merge({
+          :flags => (message[:state] + message[:labels]).map do |flag|
+            SPECIAL_MAILBOXES.key(flag) || "\~" + flag
+          end,
+          :seqno => message_ids.index(message[:message_id])
+        })
+      end
+    end
 
 		private
 
+    # returns mails as hashes
+    def fetch_internal message_ids
+      message_ids.map do |id|
+        @metaindex.load_messageinfo(id.to_i) or raise MailboxError, "can't find message #{id.inspect}"
+      end
+    end
+
+    # Build an array that lists message_ids in this mailbox in ascending
+    # order like ["shift", 47, 52, 312]
+    # "shift" is used in order to be able to use sequential numbers,
+    # which start at 1
+    def build_sequence_set mailbox_name
+      seq = @cache[["sequence_set", mailbox_name]]
+      return seq unless seq.nil?
+
+      mails = search_messages(mailbox_name).map{|mail| mail[:message_id]}.sort.unshift "shift"
+      @cache[["sequence_set", mailbox_name]] ||= mails
+    end
+
 		def messages_count mailbox_name, with_unread=false
       search_label = with_unread ? "~unread " + mailbox_name : mailbox_name
-
-      # counting is done via searching
-      query = Heliotrope::Query.new "body", mailbox_name
-      @metaindex.set_query query
-      results = @metaindex.get_some_results @metaindex.size
-      results.size
+      search_messages(search_label).size
 		end
+
+    # search for a name and return messages associated to this query
+    # query can be a label (~label, with the tilde), or a complex query.
+    def search_messages query
+      query = Heliotrope::Query.new "body", query
+      @metaindex.set_query query
+      #@metaindex.get_some_results(@metaindex.size).map do |thread|
+        ## discard the level, which is the second elem of the
+        ## load_thread_messageinfos. After that, we have a 1-elem array,
+        ## so we take it
+        #@metaindex.load_thread_messageinfos(thread[:thread_id]).map(&:first)[0]
+      #end
+      @metaindex.get_some_results @metaindex.size, :messages
+    end
 
 
 		def validate_imap_format!(label)

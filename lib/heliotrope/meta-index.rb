@@ -244,32 +244,55 @@ class MetaIndex
     @query = query
     @index.setup_query @query.whistlepig_q
     @seen_threads = {}
+    @seen_messages = {}
   end
 
   def reset_query!
     @index.teardown_query @query.whistlepig_q
     @index.setup_query @query.whistlepig_q
     @seen_threads = {}
+    @seen_messages = {}
   end
 
-  def get_some_results num
+  def get_some_results num, type = :threads
     return [] unless @query
 
     startt = Time.now
-    threadids = []
-    until threadids.size >= num
-      index_docid = @index.run_query(@query.whistlepig_q, 1).first
-      break unless index_docid
-      doc_id, thread_id = get_thread_id_from_index_docid index_docid
-      next if @seen_threads[thread_id]
-      @seen_threads[thread_id] = true
-      threadids << thread_id
+    
+    if type == :threads
+
+      threadids = []
+      until threadids.size >= num
+        index_docid = @index.run_query(@query.whistlepig_q, 1).first
+        break unless index_docid
+        doc_id, thread_id = get_thread_id_from_index_docid index_docid
+        next if @seen_threads[thread_id]
+        @seen_threads[thread_id] = true
+        threadids << thread_id
+      end
+
+      loadt = Time.now
+      results = threadids.map { |id| load_threadinfo id }
+
+    elsif type == :messages
+
+      messageids = []
+      until messageids.size >= num
+        index_docid = @index.run_query(@query.whistlepig_q, 1).first
+        break unless index_docid
+        doc_id, thread_id = get_thread_id_from_index_docid index_docid
+        next if @seen_messages[doc_id]
+        @seen_messages[doc_id] = true
+        messageids << doc_id
+      end
+
+      loadt = Time.now
+      results = messageids.map { |id| load_messageinfo id }
+
     end
 
-    loadt = Time.now
-    results = threadids.map { |id| load_threadinfo id }
     endt = Time.now
-    #printf "# search %.1fms, load %.1fms\n", 1000 * (loadt - startt), 1000 * (endt - startt)
+    printf "# search %.1fms, load %.1fms\n", 1000 * (loadt - startt), 1000 * (endt - startt)
     results
   end
 

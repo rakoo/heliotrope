@@ -574,11 +574,11 @@ module Heliotrope
     private
 
     def fetch(mailbox)
-      return mailbox.fetch(@sequence_set)
+      return @mail_store.fetch_mails_seq(mailbox, @sequence_set)
     end
 
     def send_fetch_response(mail, data)
-      @session.send_data("%d FETCH (%s)", mail.seqno, data)
+      @session.send_data("%d FETCH (%s)", mail[:seqno], data)
     end
   end
 
@@ -609,7 +609,7 @@ module Heliotrope
 
   class FlagsFetchAtt
     def fetch(mail)
-      return format("FLAGS (%s)", mail.flags.join(" "))
+      return format("FLAGS (%s)", (mail[:flags]).join(" "))
     end
   end
 
@@ -667,7 +667,7 @@ module Heliotrope
 
   class UidFetchAtt
     def fetch(mail)
-      return format("UID %s", mail.uid)
+      return format("UID %s", mail[:message_id])
     end
   end
 
