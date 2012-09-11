@@ -547,14 +547,12 @@ module Heliotrope
     end
 
     def exec
-      mails = nil
       mailbox = @session.get_current_mailbox
       mails = fetch(mailbox)
-      for mail in mails
-        data = nil
-        data = @atts.collect { |att|
+      mails.each do |mail|
+        data = @atts.collect do |att|
           att.fetch(mail)
-        }.join(" ")
+        end.join(" ")
         send_fetch_response(mail, data)
       end
       @session.send_queued_responses(/\A\d+ EXPUNGE\z/)
