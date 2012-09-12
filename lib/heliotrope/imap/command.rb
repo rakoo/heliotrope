@@ -207,7 +207,7 @@ module Heliotrope
 
         mailbox_status = @mail_store.get_mailbox_status @mailbox_name
 
-        @session.send_data("%d EXISTS", mailbox_status[:count])
+        @session.send_data("%d EXISTS", mailbox_status[:messages])
         @session.send_data("%d RECENT", mailbox_status[:recent])
         @session.send_ok("[UIDVALIDITY %d] UIDs valid", mailbox_status[:uidvalidity])
         @session.send_ok("[UIDNEXT %d] Predicted next UID", mailbox_status[:uidnext])
@@ -365,12 +365,12 @@ module Heliotrope
     end
 
     def exec
-      status = nil
-      status = @mail_store.get_mailbox_status(@mailbox_name,
-                                                @session.read_only?)
-      s = @atts.collect { |att|
-        format("%s %d", att, status.send(att.downcase))
-      }.join(" ")
+      status = @mail_store.get_mailbox_status(@mailbox_name)
+      s = @atts.collect do |att|
+        p att
+        p status
+        format("%s %d", att, status[att.downcase.to_sym])
+      end.join(" ")
 			puts "; atts in command : #{s}"
       @session.send_data("STATUS %s (%s)", quoted(@mailbox_name), s)
       @session.send_queued_responses
@@ -551,7 +551,7 @@ module Heliotrope
       mails = fetch(mailbox)
       mails.each do |mail|
         data = @atts.collect do |att|
-          att.fetch(mail)
+          att.fetch(@mail_store, mail)
         end.join(" ")
         send_fetch_response(mail, data)
       end
@@ -574,7 +574,7 @@ module Heliotrope
     private
 
     def fetch(mailbox)
-      return @mail_store.fetch_mails_seq(mailbox, @sequence_set)
+      return @mail_store.fetch_mails(mailbox, @sequence_set, :seq)
     end
 
     def send_fetch_response(mail, data)
@@ -593,12 +593,9 @@ module Heliotrope
     private
 
     def fetch(mailbox)
-      return mailbox.uid_fetch(@sequence_set)
+      return @mail_store.fetch_mails(mailbox, @sequence_set, :uid)
     end
 
-    def send_fetch_response(mail, data)
-      @session.send_data("%d FETCH (%s)", mail.seqno, data)
-    end
   end
 
   class EnvelopeFetchAtt
@@ -608,7 +605,7 @@ module Heliotrope
   end
 
   class FlagsFetchAtt
-    def fetch(mail)
+    def fetch(mail_store, mail)
       return format("FLAGS (%s)", (mail[:flags]).join(" "))
     end
   end
@@ -680,41 +677,42 @@ module Heliotrope
       @peek = peek
     end
 
-    def fetch(mail)
+    def fetch(mail_store, mail)
       if @section.nil? || @section.text.nil?
         if @section.nil?
-          part = nil
+          #part = nil
+          result = format_data(mail_store.fetch_raw(mail[:message_id]))
         else
-          part = @section.part
+          #part = @section.part
+          raise NotImplementedError, "trying to fetch #{@section.text}, not supported"
         end
-        result = format_data(mail.mime_body(part))
+        #result = format_data(mail.mime_body(part))
         unless @peek
-          flags = mail.flags(false).join(" ")
-          unless /\\Seen\b/ni.match(flags)
-            if flags.empty?
-              flags = "\\Seen"
-            else
-              flags += " \\Seen"
-            end
-            mail.flags = flags
-            result += format(" FLAGS (%s)", flags.join(" "))
-          end
+          flags = mail[:flags].join(" ")
+          flags += "\\Seen" unless /\\Seen\b/ni.match(flags)
+          mail.flags = flags
+          result += format(" FLAGS (%s)", flags.join(" "))
         end
         return result
       end
       case @section.text
       when "MIME"
-        s = mail.mime_header(@section.part)
+        #s = mail.mime_header(@section.part)
+        s = mail_store.mime_header(@section.part, mail[:message_id])
         return format_data(s)
       when "HEADER"
-        s = mail.get_header(@section.part)
+        #s = mail.get_header(@section.part)
         return format_data(s)
       when "HEADER.FIELDS"
-        s = mail.get_header_fields(@section.header_list, @section.part)
+        #s = mail.get_header_fields(@section.header_list, @section.part)
+        s = mail_store.fetch_header_fields(@section.header_list, @section.part, mail[:message_id])
         return format_data(s)
 			when "TEXT"
-        s = mail.body
+        #s = mail.body
+        s = mail_store.fetch_body(mail[:message_id])
 				return format_data(s)
+      else
+        @session.send_tagged_no @tag, "unrecognized section : #{@section.text}"
       end
     end
 

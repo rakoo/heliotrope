@@ -183,7 +183,7 @@ module Heliotrope
       {
         :recent => 0,
         :uidnext => @metaindex.size + 1,
-        :count => mailbox_name == "All Mail" ? @metaindex.size : messages_count(mailbox_name),
+        :messages => mailbox_name == "All Mail" ? @metaindex.size : messages_count(mailbox_name),
         :unseen => messages_count(mailbox_name, true),
         :uidvalidity => 1 #FIXME
       }
@@ -294,11 +294,11 @@ module Heliotrope
 		def get_uids key; @uid_store.member?(key) ? Marshal.load(@uid_store[key]).to_hash : {} end
 		def write_uids key, value; @uid_store[key] = Marshal.dump(value.to_hash) end
 
-    def fetch_mails_seq(mailbox_name, sequence_set)
+    def fetch_mails(mailbox_name, sequence_set, type)
 
       # sequence_set can contain any mix of arrays, ranges and integer.
       # Transform it to something usable
-			seq_ids = sequence_set.map do |atom|
+			flat_ids = sequence_set.map do |atom|
 				if atom.respond_to?(:last) && atom.respond_to?(:first)
 					# transform Range to Array
 					begin
@@ -317,7 +317,12 @@ module Heliotrope
 				end
 			end.flatten
 
-      message_ids = seq_ids.map {|id| build_sequence_set(mailbox_name)[id]}
+      message_ids = case type
+                      when :seq
+                        flat_ids.map {|id| build_sequence_set(mailbox_name)[id]}
+                      when :uid
+                        flat_ids
+                      end
 
       fetch_internal(message_ids).map do |message|
         message.merge({
@@ -329,6 +334,12 @@ module Heliotrope
       end
     end
 
+    ##
+    ## message-specific
+    ##
+    def fetch_raw message_id
+      @zmbox.read @metaindex.load_messageinfo(message_id)[:loc]
+    end
 		private
 
     # returns mails as hashes
