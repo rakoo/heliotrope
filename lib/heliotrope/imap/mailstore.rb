@@ -311,7 +311,7 @@ module Heliotrope
                         flat_ids
                       end
 
-      fetch_internal(message_ids)
+      message_ids.map { |id| IMAPMessage.new(id.to_i, self)}
     end
 
     ##
@@ -326,13 +326,6 @@ module Heliotrope
     end
 
 		private
-
-    # returns mails as hashes
-    def fetch_internal message_ids
-      message_ids.map do |id|
-        @metaindex.load_messageinfo(id.to_i) or raise MailboxError, "can't find message #{id.inspect}"
-      end
-    end
 
     # Build an array that lists message_ids in this mailbox in ascending
     # order like ["shift", 47, 52, 312]
