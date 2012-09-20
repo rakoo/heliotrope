@@ -63,8 +63,6 @@ module Heliotrope
       # but it should be deleted afterwards (not done yet)
 			@fakemailboxes = []
 
-			#@current_mailbox = ""
-
       @metaindex = metaindex
       @zmbox = zmbox
       @cache = LRUCache.new :max_size => 100
@@ -103,70 +101,67 @@ module Heliotrope
 
 
 
-    def delete_mailbox(name)
-			validate_imap_format!(name)
-			raise MailboxError.new("Can't delete a special mailbox") if (SPECIAL_MAILBOXES.key?(name) or MESSAGE_IMMUTABLE_STATE.include?(name))
-
-			all_mailboxes = mailboxes
-			if all_mailboxes.assoc(name).nil?
-				raise MailboxExistError.new("#{name} doesn't exist")
-			end
-
-			#TODO : cannot delete if there is the \Noselect label or if there are
-			#sublabels
-			hlabel = format_label_from_imap_to_heliotrope name
-			
-			threadinfos = search_in_heliotrope name
-			threadinfos.each do |m|
-				new_labels = m["labels"]
-			  new_labels -= [hlabel] 
-				puts "old labels : #{m["labels"]}"
-				puts "new labels : #{new_labels} "
-				@heliotropeclient.set_labels!  m["thread_id"], new_labels
-			end
-
-			# prune when all is done
-			@heliotropeclient.prune_labels!
-    end
-
-
-
-
-    def rename_mailbox(name, new_name)
-			# TODO if a label has sublabels, there is a special treatment
-
-		 	if (SPECIAL_MAILBOXES.key?(name) or SPECIAL_MAILBOXES.key?(new_name) or MESSAGE_IMMUTABLE_STATE.subset?(Set.new [name, new_name]))
-				raise MailboxError.new("Can't rename a special mailbox")
-			end
-
-			all_mailboxes = mailboxes
-			if all_mailboxes.assoc(name).nil? # mailbox "name" doesn't exist
-				raise NoMailboxError.new("Can't rename #{name} to #{new_name} : #{name} doesn't exist")
-			end
-			unless all_mailboxes.assoc(new_name).nil? # mailbox "new_name" already exists
-				raise MailboxExistError.new("Can't rename #{name} to #{new_name} : #{new_name} already exists")
-			end
-
-			puts "rename label #{name} to #{new_name}"
-
-			hname = format_label_from_imap_to_heliotrope name
-			hnew_name = format_label_from_imap_to_heliotrope new_name
-
-			thread_infos = []
-			count = @heliotropeclient.count name
-			threadinfos = search_in_heliotrope name
-			threadinfos.each do |m|
-				new_labels = m["labels"]
-				new_labels += [hnew_name]
-			  new_labels -= [hname] unless hname == "inbox" # if the old label is inbox, duplicate instead of moving : RFC
-				@heliotropeclient.set_labels!  m["thread_id"], new_labels.flatten
-			end
-
-			# prune labels
-			@heliotropeclient.prune_labels!
-    end
-
     def get_mailbox_status(mailbox_name, read_only = false)
+    #def delete_mailbox(name)
+			#validate_imap_format!(name)
+			#raise MailboxError.new("Can't delete a special mailbox") if (SPECIAL_MAILBOXES.key?(name) or MESSAGE_IMMUTABLE_STATE.include?(name))
+
+			#all_mailboxes = mailboxes
+			#if all_mailboxes.assoc(name).nil?
+				#raise MailboxExistError.new("#{name} doesn't exist")
+			#end
+
+			##TODO : cannot delete if there is the \Noselect label or if there are
+			##sublabels
+			#hlabel = format_label_from_imap_to_heliotrope name
+
+			#threadinfos = search_in_heliotrope name
+			#threadinfos.each do |m|
+				#new_labels = m["labels"]
+			  #new_labels -= [hlabel] 
+				#puts "old labels : #{m["labels"]}"
+				#puts "new labels : #{new_labels} "
+				#@heliotropeclient.set_labels!  m["thread_id"], new_labels
+			#end
+
+			## prune when all is done
+			#@heliotropeclient.prune_labels!
+    #end
+
+    #def rename_mailbox(name, new_name)
+			## TODO if a label has sublabels, there is a special treatment
+
+		 	#if (SPECIAL_MAILBOXES.key?(name) or SPECIAL_MAILBOXES.key?(new_name) or MESSAGE_IMMUTABLE_STATE.subset?(Set.new [name, new_name]))
+				#raise MailboxError.new("Can't rename a special mailbox")
+			#end
+
+			#all_mailboxes = mailboxes
+			#if all_mailboxes.assoc(name).nil? # mailbox "name" doesn't exist
+				#raise NoMailboxError.new("Can't rename #{name} to #{new_name} : #{name} doesn't exist")
+			#end
+			#unless all_mailboxes.assoc(new_name).nil? # mailbox "new_name" already exists
+				#raise MailboxExistError.new("Can't rename #{name} to #{new_name} : #{new_name} already exists")
+			#end
+
+			#puts "rename label #{name} to #{new_name}"
+
+			#hname = format_label_from_imap_to_heliotrope name
+			#hnew_name = format_label_from_imap_to_heliotrope new_name
+
+			#thread_infos = []
+			#count = @heliotropeclient.count name
+			#threadinfos = search_in_heliotrope name
+			#threadinfos.each do |m|
+				#new_labels = m["labels"]
+				#new_labels += [hnew_name]
+			  #new_labels -= [hname] unless hname == "inbox" # if the old label is inbox, duplicate instead of moving : RFC
+				#@heliotropeclient.set_labels!  m["thread_id"], new_labels.flatten
+			#end
+
+			## prune labels
+			#@heliotropeclient.prune_labels!
+    #end
+
 
 			validate_imap_format!(mailbox_name)
 
@@ -206,49 +201,45 @@ module Heliotrope
       name
     end
 
-    def delete_mail(mailbox, seqno)
-			puts "; trying to delete mail seq #{seqno} in #{mailbox.name}"
-			ret = mailbox.delete_seqno(seqno)
-			ret
-    end
+    #def delete_mail(mailbox, seqno)
+			#puts "; trying to delete mail seq #{seqno} in #{mailbox.name}"
+			#ret = mailbox.delete_seqno(seqno)
+			#ret
+    #end
 
-		def copy_mails_to_mailbox(mails, mailbox)
-			out = []
+		#def copy_mails_to_mailbox(mails, mailbox)
+			#out = []
 
-			mailbox_name = mailbox.name
-			validate_imap_format!(mailbox_name)
-			all_mailboxes = mailboxes
-			raise MailboxExistError.new("[TRYCREATE] #{mailbox_name} doesn't exist") if
-		 		all_mailboxes.assoc(mailbox_name).nil?
-			raise NotSelectableMailboxError.new("#{mailbox_name} is not selectable") if
-				all_mailboxes.assoc(mailbox_name).include?("\\Noselect")
+			#mailbox_name = mailbox.name
+			#validate_imap_format!(mailbox_name)
+			#all_mailboxes = mailboxes
+			#raise MailboxExistError.new("[TRYCREATE] #{mailbox_name} doesn't exist") if
+		 		#all_mailboxes.assoc(mailbox_name).nil?
+			#raise NotSelectableMailboxError.new("#{mailbox_name} is not selectable") if
+				#all_mailboxes.assoc(mailbox_name).include?("\\Noselect")
 
-			puts "copy mails to #{mailbox_name}"
+			#puts "copy mails to #{mailbox_name}"
 
-			dst_mailbox = get_mailbox(mailbox_name)
+			#dst_mailbox = get_mailbox(mailbox_name)
 
-			hlabel = format_label_from_imap_to_heliotrope mailbox_name
-			mails.each do |m|
-				response = dst_mailbox.append_mail(m)
-				out << response[:uid]
-			end
+			#hlabel = format_label_from_imap_to_heliotrope mailbox_name
+			#mails.each do |m|
+				#response = dst_mailbox.append_mail(m)
+				#out << response[:uid]
+			#end
 
-			out
-		end
+			#out
+		#end
 
 
-		def append_mail(message, mailbox_name, flags)
-			all_mailboxes = mailboxes
-			validate_imap_format! mailbox_name
-			raise MailboxExistError.new("[TRYCREATE] #{mailbox_name} doesn't exist") if
-		 		all_mailboxes.assoc(mailbox_name).nil?
+		#def append_mail(message, mailbox_name, flags)
+			#all_mailboxes = mailboxes
+			#validate_imap_format! mailbox_name
+			#raise MailboxExistError.new("[TRYCREATE] #{mailbox_name} doesn't exist") if
+		 		#all_mailboxes.assoc(mailbox_name).nil?
 
-			get_mailbox(mailbox_name).append_mail_to_mailbox message, flags
-		end
-
-    def get_next_mailbox_id
-      return @mailbox_id_seq.next
-    end
+			#get_mailbox(mailbox_name).append_mail_to_mailbox message, flags
+		#end
 
 		def fetch_labels_and_flags_for_message_id(message_id)
 			out = []
@@ -266,33 +257,33 @@ module Heliotrope
 			out.compact.uniq
 		end
 
-		def set_labels_and_flags_for_message_id(message_id, flags)
-			messageinfos = @heliotropeclient.messageinfos(message_id)
-			thread_id = messageinfos["thread_id"]
-			message_id = messageinfos["message_id"]
+		#def set_labels_and_flags_for_message_id(message_id, flags)
+			#messageinfos = @heliotropeclient.messageinfos(message_id)
+			#thread_id = messageinfos["thread_id"]
+			#message_id = messageinfos["message_id"]
 
-			flags.map! do |f|
-				format_label_from_imap_to_heliotrope f
-			end.compact!
+			#flags.map! do |f|
+				#format_label_from_imap_to_heliotrope f
+			#end.compact!
 
-			# separate flags between labels and state
-			state = flags.select{|f| MESSAGE_STATE.member?(f)}
-			labels = flags - state
+			## separate flags between labels and state
+			#state = flags.select{|f| MESSAGE_STATE.member?(f)}
+			#labels = flags - state
 
-			@heliotropeclient.set_labels! thread_id, labels
-			@heliotropeclient.set_state! message_id, state
+			#@heliotropeclient.set_labels! thread_id, labels
+			#@heliotropeclient.set_state! message_id, state
 
-			@heliotropeclient.messageinfos message_id
-		end
+			#@heliotropeclient.messageinfos message_id
+		#end
 
-		def fetch_date_for_uid(uid)
-			Time.at(@heliotropeclient.messageinfos(uid).fetch("date"))
-		end
+		#def fetch_date_for_uid(uid)
+			#Time.at(@heliotropeclient.messageinfos(uid).fetch("date"))
+		#end
 
-		def next_uid key; @uid_store.member?(key) ?  Marshal.load(@uid_store[key]).to_i : 1 end
-		def increment_next_uid key, value; @uid_store[key] = Marshal.dump(value.to_i) end
-		def get_uids key; @uid_store.member?(key) ? Marshal.load(@uid_store[key]).to_hash : {} end
-		def write_uids key, value; @uid_store[key] = Marshal.dump(value.to_hash) end
+		#def next_uid key; @uid_store.member?(key) ?  Marshal.load(@uid_store[key]).to_i : 1 end
+		#def increment_next_uid key, value; @uid_store[key] = Marshal.dump(value.to_i) end
+		#def get_uids key; @uid_store.member?(key) ? Marshal.load(@uid_store[key]).to_hash : {} end
+		#def write_uids key, value; @uid_store[key] = Marshal.dump(value.to_hash) end
 
     def fetch_mails(mailbox_name, sequence_set, type)
 
@@ -371,15 +362,8 @@ module Heliotrope
     def search_messages query
       query = Heliotrope::Query.new "body", query
       @metaindex.set_query query
-      #@metaindex.get_some_results(@metaindex.size).map do |thread|
-        ## discard the level, which is the second elem of the
-        ## load_thread_messageinfos. After that, we have a 1-elem array,
-        ## so we take it
-        #@metaindex.load_thread_messageinfos(thread[:thread_id]).map(&:first)[0]
-      #end
       @metaindex.get_some_results @metaindex.size, :messages
     end
-
 
 		def validate_imap_format!(label)
 			unless /^\~/.match(label) or SPECIAL_MAILBOXES.key?(label)

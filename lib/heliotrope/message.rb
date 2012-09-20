@@ -218,8 +218,6 @@ private
     end
   end
 
-private
-
   def validate_field what, thing
     raise InvalidMessageError, "missing '#{what}' header" if thing.nil?
     thing = thing.to_s.strip
