@@ -281,7 +281,7 @@ class MetaIndex
         index_docid = @index.run_query(@query.whistlepig_q, 1).first
         break unless index_docid
         doc_id, thread_id = get_thread_id_from_index_docid index_docid
-        tmp_messages = load_thread_messageinfos(thread_id)["messageinfos"].map(&:first)
+        tmp_messages = load_thread_messageinfos(thread_id).map(&:first)
         tmp_messages.each do |tmp_message|
           next if @seen_message_ids[tmp_message["message_id"]]
           @seen_message_ids[tmp_message["message_id"]] = true
