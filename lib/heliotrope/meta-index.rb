@@ -379,7 +379,36 @@ class MetaIndex
     write_int "s2i/#{store_docid}", index_docid # reidrect store to index
   end
 
+  def labels_count; flags_count(:labels) end
+  def state_count; flags_count(:state) end
+
 private
+
+  # Return a hash with keys being the flags (:labels or :state) and
+  # values being the number of messages for that flag
+  def flags_count(type)
+    return {} unless type
+
+    startt = Time.now
+
+    ret_hash = {}
+
+    startkey, endkey = case type
+                       when :labels; ["mlabels/", "mlabels/~"]
+                       when :state; ["state/", "state/~"]
+                       end
+
+    @store.each(:from => startkey, :to => endkey) do |key, value|
+      next unless key.split('/').last.respond_to? :to_i # Verify that we have a number...
+      Marshal.load(value).each do |label| 
+        label = Decoder.in_ruby19_hell? ? label.encode(Encoding::UTF_8) : label
+        ret_hash[label] = (ret_hash[label] || 0) + 1
+      end
+    end
+
+    puts "# #{type} count took #{(Time.now - startt) * 1000} ms"
+    ret_hash
+  end
 
   def get_thread_id_from_index_docid index_docid
     store_docid = load_int("i2s/#{index_docid}")
@@ -474,6 +503,7 @@ private
     key = "labellist"
     labellist = load_set key
     labellist_new = labellist + labels.select { |l| is_valid_whistlepig_token? l }
+    
     write_set key, labellist_new unless labellist == labellist_new
   end
 

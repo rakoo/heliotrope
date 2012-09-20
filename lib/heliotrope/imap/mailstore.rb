@@ -101,7 +101,6 @@ module Heliotrope
 
 
 
-    def get_mailbox_status(mailbox_name, read_only = false)
     #def delete_mailbox(name)
 			#validate_imap_format!(name)
 			#raise MailboxError.new("Can't delete a special mailbox") if (SPECIAL_MAILBOXES.key?(name) or MESSAGE_IMMUTABLE_STATE.include?(name))
@@ -162,6 +161,7 @@ module Heliotrope
 			#@heliotropeclient.prune_labels!
     #end
 
+    def get_mailbox_status(mailbox_name)
 
 			validate_imap_format!(mailbox_name)
 
@@ -242,19 +242,13 @@ module Heliotrope
 		#end
 
 		def fetch_labels_and_flags_for_message_id(message_id)
-			out = []
-			minfos = 	@heliotropeclient.messageinfos(message_id)
-			out << minfos["labels"] << minfos["state"]
-			out = out.flatten.map do |l|
-				if SPECIAL_MAILBOXES.value?(l)
-					SPECIAL_MAILBOXES.key(l)
-				else
-					"~" + l
-				end
+			minfos = 	@metaindex.load_messageinfo(message_id)
+      out = (minfos[:labels] + minfos[:state]).map do |l|
+        SPECIAL_MAILBOXES.key(l) || "~" + l
 			end
 
 			out << "\\Seen" unless out.include?("~unread")
-			out.compact.uniq
+			out
 		end
 
 		#def set_labels_and_flags_for_message_id(message_id, flags)
@@ -308,9 +302,11 @@ module Heliotrope
 				end
 			end.flatten
 
+      sequence_set = build_sequence_set(mailbox_name)
+
       message_ids = case type
                       when :seq
-                        flat_ids.map {|id| build_sequence_set(mailbox_name)[id]}
+                        flat_ids.map {|id| sequence_set[id]}
                       when :uid
                         flat_ids
                       end
@@ -343,15 +339,13 @@ module Heliotrope
     # "shift" is used in order to be able to use sequential numbers,
     # which start at 1
     def build_sequence_set mailbox_name
-      seq = @cache[["sequence_set", mailbox_name]]
-      return seq unless seq.nil?
-
-      mails = search_messages(mailbox_name).map{|mail| mail[:message_id]}.sort.unshift "shift"
-      @cache[["sequence_set", mailbox_name]] ||= mails
+      heliotrope_query = format_label_from_imap_to_heliotrope_query(mailbox_name)
+      search_messages(heliotrope_query).map{|mail| mail[:message_id]}.sort.unshift "shift"
     end
 
-		def messages_count mailbox_name, with_unread=false
-      search_label = with_unread ? "~unread " + mailbox_name : mailbox_name
+    def messages_count mailbox_name, with_unread=false
+      search_label = format_label_from_imap_to_heliotrope_query(mailbox_name)
+      search_label += " ~unread" if with_unread
       search_messages(search_label).size
 		end
 
@@ -379,6 +373,10 @@ module Heliotrope
 				return ilabel.gsub(/^\~/,"") # remove ~ from the beginning of the label
 			end
 		end
+
+    def format_label_from_imap_to_heliotrope_query ilabel
+      SPECIAL_MAILBOXES[ilabel].nil? ? ilabel : "~" + SPECIAL_MAILBOXES[ilabel]
+    end
 
     def extract_query(mailbox_name)
       s = mailbox_name.slice(/\Aqueries\/(.*)/u, 1)
