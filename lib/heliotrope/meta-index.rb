@@ -244,14 +244,14 @@ class MetaIndex
     @query = query
     @index.setup_query @query.whistlepig_q
     @seen_threads = {}
-    @seen_messages = {}
+    @seen_message_ids = {}
   end
 
   def reset_query!
     @index.teardown_query @query.whistlepig_q
     @index.setup_query @query.whistlepig_q
     @seen_threads = {}
-    @seen_messages = {}
+    @seen_message_ids = {}
   end
 
   def get_some_results num, type = :threads
@@ -276,18 +276,21 @@ class MetaIndex
 
     elsif type == :messages
 
-      messageids = []
-      until messageids.size >= num
+      messages = []
+      until messages.size >= num
         index_docid = @index.run_query(@query.whistlepig_q, 1).first
         break unless index_docid
         doc_id, thread_id = get_thread_id_from_index_docid index_docid
-        next if @seen_messages[doc_id]
-        @seen_messages[doc_id] = true
-        messageids << doc_id
+        tmp_messages = load_thread_messageinfos(thread_id)["messageinfos"].map(&:first)
+        tmp_messages.each do |tmp_message|
+          next if @seen_message_ids[tmp_message["message_id"]]
+          @seen_message_ids[tmp_message["message_id"]] = true
+          messages << tmp_message
+        end
       end
 
       loadt = Time.now
-      results = messageids.map { |id| load_messageinfo id }
+      results = messages
 
     end
 
