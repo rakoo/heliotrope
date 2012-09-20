@@ -680,8 +680,8 @@ EOS
 
   opt :with_imap, "Launch IMAP server", :default => false
   opt :imap_port, "Port to listen to for IMAP", :default => 10142
-  opt :imap_user, "User for IMAP", :default => "anon"
-  opt :imap_pass, "Password for IMAP", :default => "anon"
+  opt :imap_user, "User for IMAP", :default => "heliotrope"
+  opt :imap_pass, "Password for IMAP", :default => "heliotrope"
 end
 
 FileUtils.mkdir_p opts.dir
