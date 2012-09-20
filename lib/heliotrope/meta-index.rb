@@ -243,15 +243,15 @@ class MetaIndex
     @index.teardown_query @query.whistlepig_q if @query # new query, drop old one
     @query = query
     @index.setup_query @query.whistlepig_q
-    @seen_threads = {}
-    @seen_message_ids = {}
+    @seen_threads = Set.new
+    @seen_message_ids = Set.new
   end
 
   def reset_query!
     @index.teardown_query @query.whistlepig_q
     @index.setup_query @query.whistlepig_q
-    @seen_threads = {}
-    @seen_message_ids = {}
+    @seen_threads = Set.new
+    @seen_message_ids = Set.new
   end
 
   def get_some_results num, type = :threads
@@ -266,8 +266,8 @@ class MetaIndex
         index_docid = @index.run_query(@query.whistlepig_q, 1).first
         break unless index_docid
         doc_id, thread_id = get_thread_id_from_index_docid index_docid
-        next if @seen_threads[thread_id]
-        @seen_threads[thread_id] = true
+        next if @seen_threads.include? thread_id
+        @seen_threads << thread_id
         threadids << thread_id
       end
 
@@ -283,8 +283,8 @@ class MetaIndex
         doc_id, thread_id = get_thread_id_from_index_docid index_docid
         tmp_messages = load_thread_messageinfos(thread_id).map(&:first)
         tmp_messages.each do |tmp_message|
-          next if @seen_message_ids[tmp_message["message_id"]]
-          @seen_message_ids[tmp_message["message_id"]] = true
+          next if @seen_message_ids.include?(tmp_message[:message_id]) or tmp_message[:message_id].nil?
+          @seen_message_ids << tmp_message[:message_id]
           messages << tmp_message
         end
       end
