@@ -40,4 +40,6 @@ module Heliotrope
   class IdleTerminated < Exception; end
 	class MessageNotValidError < Exception; end
 	class NotToDeleteError < Exception; end
+
+  class NotImplementedError < Exception; end
 end

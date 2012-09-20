@@ -315,14 +315,7 @@ module Heliotrope
                         flat_ids
                       end
 
-      fetch_internal(message_ids).map do |message|
-        message.merge({
-          :flags => (message[:state] + message[:labels]).map do |flag|
-            SPECIAL_MAILBOXES.key(flag) || "\~" + flag
-          end,
-          :seqno => message_ids.index(message[:message_id])
-        })
-      end
+      fetch_internal(message_ids)
     end
 
     ##
@@ -331,6 +324,11 @@ module Heliotrope
     def fetch_raw message_id
       @zmbox.read @metaindex.load_messageinfo(message_id)[:loc]
     end
+
+    def get_seqno(mailbox_name, message_id)
+      build_sequence_set(mailbox_name).index(message_id)
+    end
+
 		private
 
     # returns mails as hashes

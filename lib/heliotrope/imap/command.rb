@@ -551,7 +551,7 @@ module Heliotrope
       mails = fetch(mailbox)
       mails.each do |mail|
         data = @atts.collect do |att|
-          att.fetch(@mail_store, mail)
+          att.fetch(mail)
         end.join(" ")
         send_fetch_response(mail, data)
       end
@@ -578,7 +578,7 @@ module Heliotrope
     end
 
     def send_fetch_response(mail, data)
-      @session.send_data("%d FETCH (%s)", mail[:seqno], data)
+      @session.send_data("%d FETCH (%s)", mail.seqno_in(@session.get_current_mailbox), data)
     end
   end
 
@@ -605,8 +605,8 @@ module Heliotrope
   end
 
   class FlagsFetchAtt
-    def fetch(mail_store, mail)
-      return format("FLAGS (%s)", (mail[:flags]).join(" "))
+    def fetch(mail)
+      return format("FLAGS (%s)", mail.flags.sort.join(" "))
     end
   end
 
@@ -614,7 +614,7 @@ module Heliotrope
     include DataFormat
 
     def fetch(mail)
-      indate = mail.internal_date.strftime("%d-%b-%Y %H:%M:%S %z")
+      indate = mail_store.fetch_date(mail[:message_id]).strftime("%d-%b-%Y %H:%M:%S %z")
       return format("INTERNALDATE %s", quoted(indate))
     end
   end
@@ -664,7 +664,7 @@ module Heliotrope
 
   class UidFetchAtt
     def fetch(mail)
-      return format("UID %s", mail[:message_id])
+      return format("UID %s", mail.uid)
     end
   end
 
@@ -677,18 +677,18 @@ module Heliotrope
       @peek = peek
     end
 
-    def fetch(mail_store, mail)
+    def fetch(mail)
       if @section.nil? || @section.text.nil?
         if @section.nil?
           #part = nil
-          result = format_data(mail_store.fetch_raw(mail[:message_id]))
+          result = format_data(mail.rawbody)
         else
           #part = @section.part
           raise NotImplementedError, "trying to fetch #{@section.text}, not supported"
         end
         #result = format_data(mail.mime_body(part))
         unless @peek
-          flags = mail[:flags].join(" ")
+          flags = mail.flags.join(" ")
           flags += "\\Seen" unless /\\Seen\b/ni.match(flags)
           mail.flags = flags
           result += format(" FLAGS (%s)", flags.join(" "))

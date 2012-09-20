@@ -32,5 +32,6 @@ module Heliotrope
   require "heliotrope/imap/error"
   require "heliotrope/imap/query"
   require "heliotrope/imap/mailstore"
+  require "heliotrope/imap/imapmessage"
 
 end
