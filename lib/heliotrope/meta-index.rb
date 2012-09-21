@@ -382,6 +382,9 @@ class MetaIndex
   def labels_count; flags_count(:labels) end
   def state_count; flags_count(:state) end
 
+  def timestamp(flag); load_int("timestamp/#{flag}") end
+  def set_timestamp(flag); write_int("timestamp/#{flag}", Time.now.to_i) end
+
 private
 
   # Return a hash with keys being the flags (:labels or :state) and
@@ -440,7 +443,11 @@ private
     new_mstate = (old_mstate - MESSAGE_MUTABLE_STATE) + state
 
     changed = new_mstate != old_mstate
-    write_set key, new_mstate if changed
+
+    if changed
+      write_set key, new_mstate
+      set_timestamp state
+    end
     [changed, new_mstate]
   end
 
@@ -504,7 +511,10 @@ private
     labellist = load_set key
     labellist_new = labellist + labels.select { |l| is_valid_whistlepig_token? l }
     
-    write_set key, labellist_new unless labellist == labellist_new
+    unless labelllist == labellist_new
+      write_set key, labellist_new
+      labels.each {|label| set_timestamp(label)}
+    end
   end
 
   def calc_thread_snippet thread_structure

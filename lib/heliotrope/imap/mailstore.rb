@@ -332,8 +332,21 @@ module Heliotrope
     # "shift" is used in order to be able to use sequential numbers,
     # which start at 1
     def build_sequence_set mailbox_name
-      heliotrope_query = format_label_from_imap_to_heliotrope_query(mailbox_name)
-      search_messages(heliotrope_query).map{|mail| mail[:message_id]}.sort.unshift "shift"
+      meta_timestamp = @metaindex.timestamp(mailbox_name)
+      cache_timestamp = @cache[["timestamp", mailbox_name]]
+      if cache_timestamp.nil? or (cache_timestamp < meta_timestamp and meta_timestamp > 0)
+        # cache is old, update it
+        heliotrope_query = format_label_from_imap_to_heliotrope_query(mailbox_name)
+        seq_set = search_messages(heliotrope_query).map{|mail| mail[:message_id]}.sort.unshift("shift")
+
+        @cache[["sequence_set", mailbox_name]] = seq_set
+        @cache[["timestamp", mailbox_name]] = meta_timestamp
+        @metaindex.set_timestamp(mailbox_name)
+
+        seq_set
+      else
+        @cache[["sequence_set", mailbox_name]]
+      end
     end
 
     def messages_count mailbox_name, with_unread=false
