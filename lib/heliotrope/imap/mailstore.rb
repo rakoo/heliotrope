@@ -316,17 +316,14 @@ module Heliotrope
     # "shift" is used in order to be able to use sequential numbers,
     # which start at 1
     def build_sequence_set mailbox_name
-      meta_timestamp = @metaindex.timestamp(mailbox_name)
-      cache_timestamp = @cache[["timestamp", mailbox_name]]
-      if cache_timestamp.nil? or (cache_timestamp < meta_timestamp and meta_timestamp > 0)
+      state = mailbox_dirty_state mailbox_name, "sequence_set"
+      if state[:dirty] or @cache[["sequence_set", mailbox_name]].nil?
         # cache is old, update it
         heliotrope_query = format_label_from_imap_to_heliotrope_query(mailbox_name)
         seq_set = search_messages(heliotrope_query).map{|mail| mail[:message_id]}.sort.unshift("shift")
 
         @cache[["sequence_set", mailbox_name]] = seq_set
-        @cache[["timestamp", mailbox_name]] = meta_timestamp
-        @metaindex.set_timestamp(mailbox_name)
-
+        @cache[["timestamp", "sequence_set", mailbox_name]] = state[:timestamp]
         seq_set
       else
         @cache[["sequence_set", mailbox_name]]
@@ -334,10 +331,48 @@ module Heliotrope
     end
 
     def messages_count mailbox_name, with_unread=false
-      search_label = format_label_from_imap_to_heliotrope_query(mailbox_name)
-      search_label += " ~unread" if with_unread
-      search_messages(search_label).size
+      state_mailbox = mailbox_dirty_state mailbox_name, "count"
+
+      if with_unread
+        state_unread = mailbox_dirty_state "~unread", "count"
+        state = {
+          :dirty => state_mailbox[:dirty] || state_unread[:dirty],
+          :timestamp => [state_mailbox[:timestamp], state_unread[:timestamp]].max
+        }
+        key = "count_with_unread"
+      else
+        state = state_mailbox
+        key = "count"
+      end
+
+      if state[:dirty] or @cache[[key, mailbox_name]].nil?
+        search_label = format_label_from_imap_to_heliotrope_query(mailbox_name)
+        search_label += " ~unread" if with_unread
+        count = search_messages(search_label).size
+
+        @cache[["timestamp", "count", mailbox_name]] = state[:timestamp]
+        @cache[[key, mailbox_name]] = count
+      else
+        @cache[[key, mailbox_name]]
+      end
 		end
+
+    # Is the mailbox dirty ? Specified by its last-touched timestamp as
+    # given by the meta-index, compared to local cache value.
+    def mailbox_dirty_state mailbox_name, method
+      hflag = format_label_from_imap_to_heliotrope(mailbox_name)
+      meta_timestamp = @metaindex.timestamp(hflag)
+      cache_timestamp = @cache[["timestamp", method, mailbox_name]] || 0
+
+      p "cache for #{method}, #{mailbox_name} : #{cache_timestamp} - #{meta_timestamp}"
+
+      if cache_timestamp < meta_timestamp
+        {:dirty => true}
+      else
+        {:dirty => false}
+      end.merge({:timestamp => meta_timestamp})
+
+    end
 
     # search for a name and return messages associated to this query
     # query can be a label (~label, with the tilde), or a complex query.

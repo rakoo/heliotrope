@@ -230,6 +230,7 @@ class MetaIndex
     threadinfo = load_hash "thread/#{threadid}"
     write_thread_message_labels! threadinfo[:structure], new_tlabels
 
+    (old_tlabels + new_tlabels).each {|label| set_timestamp! label}
     new_tlabels
   end
 
@@ -519,7 +520,6 @@ private
     labellist = load_set key
     labellist_new = labellist + labels.select { |l| is_valid_whistlepig_token? l }
 
-    labels.each {|label| set_timestamp!(label)}
     write_set key, labellist_new unless labellist == labellist_new
   end
 
