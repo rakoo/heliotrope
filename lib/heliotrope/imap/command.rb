@@ -800,7 +800,7 @@ module Heliotrope
 
     def fetch(mailbox)
       @mailbox = mailbox
-      @mail_store.fetch_mails(mailbox, @sequence_set, :seq)
+      @mail_store.fetch_mails(mailbox, @sequence_set, :uid)
     end
 
     def send_fetch_response(mail, flags)
