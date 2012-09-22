@@ -241,8 +241,8 @@ module Heliotrope
 			#get_mailbox(mailbox_name).append_mail_to_mailbox message, flags
 		#end
 
-    def fetch_flags_for_message_id(message_id)
-      minfos = 	@metaindex.load_messageinfo(message_id)
+		def fetch_flags_for_message_id(message_id)
+			minfos = @metaindex.load_messageinfo(message_id)
       out = (minfos[:labels] + minfos[:state]).map do |l|
         SPECIAL_MAILBOXES.key(l) || "~" + l
       end

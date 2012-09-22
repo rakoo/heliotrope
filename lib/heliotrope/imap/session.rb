@@ -128,16 +128,10 @@ module Heliotrope
       @state = IMAP_AUTHENTICATED_STATE
     end
 
-    #def sync
-      #@mail_store.write_last_peeked_uids
-    #end
-
     def push_response(mailbox, response)
       if mailbox.nil? || @current_mailbox == mailbox
         @queued_responses[mailbox] ||= []
         @queued_responses[mailbox].push "* " + response
-      else
-        # noop
       end
     end
 

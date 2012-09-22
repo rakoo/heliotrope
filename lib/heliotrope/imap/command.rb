@@ -367,8 +367,6 @@ module Heliotrope
     def exec
       status = @mail_store.get_mailbox_status(@mailbox_name)
       s = @atts.collect do |att|
-        p att
-        p status
         format("%s %d", att, status[att.downcase.to_sym])
       end.join(" ")
 			puts "; atts in command : #{s}"
@@ -484,61 +482,61 @@ module Heliotrope
     end
   end
 
-  class AbstractSearchCommand < Command
-    def initialize(query)
-      @query = query
-    end
+  #class AbstractSearchCommand < Command
+    #def initialize(query)
+      #@query = query
+    #end
 
-    def exec
-      result = nil
-      mailbox = @session.get_current_mailbox
-      uids = mailbox.uid_search(@query)
-      result = create_result(mailbox, uids)
-      if result.empty?
-        @session.send_data("SEARCH")
-      else
-        @session.send_data("SEARCH %s", result.join(" "))
-      end
-      @session.send_queued_responses
-      send_tagged_ok
-    end
+    #def exec
+      #result = nil
+      ##mailbox = @session.get_current_mailbox
+      ##uids = mailbox.uid_search(@query)
+      ##result = create_result(mailbox, uids)
+      ##if result.empty?
+        ##@session.send_data("SEARCH")
+      ##else
+        ##@session.send_data("SEARCH %s", result.join(" "))
+      ##end
+      ##@session.send_queued_responses
+      ##send_tagged_ok
+    #end
 
-    private
+    #private
 
-    def create_result(uids)
-      raise SubclassResponsibilityError.new
-    end
-  end
+    #def create_result(uids)
+      #raise SubclassResponsibilityError.new
+    #end
+  #end
 
-  class SearchCommand < AbstractSearchCommand
-    private
+  #class SearchCommand < AbstractSearchCommand
+    #private
 
-    def create_result(mailbox, uids)
-      if uids.empty?
-        return []
-      else
-        mails = mailbox.fetch([1 .. -1])
-        uid_tbl = uids.inject({}) { |tbl, uid|
-          tbl[uid] = true
-          tbl
-        }
-        return mails.inject([]) { |ary, mail|
-          if uid_tbl.key?(mail.uid)
-            ary.push(mail.seqno)
-          end
-          ary
-        }
-      end
-    end
-  end
+    #def create_result(mailbox, uids)
+      #if uids.empty?
+        #return []
+      #else
+        #mails = mailbox.fetch([1 .. -1])
+        ##uid_tbl = uids.inject({}) { |tbl, uid|
+          ##tbl[uid] = true
+          ##tbl
+        ##}
+        ##return mails.inject([]) { |ary, mail|
+          ##if uid_tbl.key?(mail.uid)
+            ##ary.push(mail.seqno)
+          ##end
+          ##ary
+        ##}
+      #end
+    #end
+  #end
 
-  class UidSearchCommand < AbstractSearchCommand
-    private
+  #class UidSearchCommand < AbstractSearchCommand
+    #private
 
-    def create_result(mailbox, uids)
-      return uids
-    end
-  end
+    ##def create_result(mailbox, uids)
+      ##return uids
+    ##end
+  #end
 
   class AbstractFetchCommand < Command
     def initialize(sequence_set, atts)
@@ -574,7 +572,7 @@ module Heliotrope
     private
 
     def fetch(mailbox)
-      return @mail_store.fetch_mails(mailbox, @sequence_set, :seq)
+      @mail_store.fetch_mails(mailbox, @sequence_set, :seq)
     end
 
     def send_fetch_response(mail, data)
@@ -593,20 +591,20 @@ module Heliotrope
     private
 
     def fetch(mailbox)
-      return @mail_store.fetch_mails(mailbox, @sequence_set, :uid)
+      @mail_store.fetch_mails(mailbox, @sequence_set, :uid)
     end
 
   end
 
   class EnvelopeFetchAtt
     def fetch(mail)
-      return format("ENVELOPE %s", mail.envelope)
+      format("ENVELOPE %s", mail.envelope)
     end
   end
 
   class FlagsFetchAtt
     def fetch(mail)
-      return format("FLAGS (%s)", mail.flags.sort.join(" "))
+      format("FLAGS (%s)", mail.flags.sort.join(" "))
     end
   end
 
@@ -615,7 +613,7 @@ module Heliotrope
 
     def fetch(mail)
       indate = mail_store.fetch_date(mail[:message_id]).strftime("%d-%b-%Y %H:%M:%S %z")
-      return format("INTERNALDATE %s", quoted(indate))
+      format("INTERNALDATE %s", quoted(indate))
     end
   end
 
@@ -623,7 +621,7 @@ module Heliotrope
     include DataFormat
 
     def fetch(mail)
-      return format("RFC822 %s", literal(mail.to_s))
+      format("RFC822 %s", literal(mail.to_s))
     end
   end
 
@@ -631,7 +629,7 @@ module Heliotrope
     include DataFormat
 
     def fetch(mail)
-      return format("RFC822.HEADER %s", literal(mail.get_header.fields.map do |f|
+      format("RFC822.HEADER %s", literal(mail.get_header.fields.map do |f|
 				"#{f.name}: #{f.value}"
 			end.join("\r\n")))
     end
@@ -639,32 +637,32 @@ module Heliotrope
 
   class RFC822SizeFetchAtt
     def fetch(mail)
-      return format("RFC822.SIZE %s", mail.size)
+      format("RFC822.SIZE %s", mail.size)
     end
   end
 
   class RFC822TextFetchAtt
     def fetch(mail)
 			s = mail.body
-			return format("RFC822.TEXT {%d}\r\n%s", s.size, s)
+			format("RFC822.TEXT {%d}\r\n%s", s.size, s)
     end
   end
 
   class BodyFetchAtt
     def fetch(mail)
-      return format("BODY %s", mail.body_structure(false))
+      format("BODY %s", mail.body_structure(false))
     end
   end
 
   class BodyStructureFetchAtt
     def fetch(mail)
-      return format("BODYSTRUCTURE %s", mail.body_structure(true))
+      format("BODYSTRUCTURE %s", mail.body_structure(true))
     end
   end
 
   class UidFetchAtt
     def fetch(mail)
-      return format("UID %s", mail.uid)
+      format("UID %s", mail.uid)
     end
   end
 
