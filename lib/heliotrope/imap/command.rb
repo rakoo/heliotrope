@@ -758,20 +758,14 @@ module Heliotrope
       mails = nil
       mailbox = @session.get_current_mailbox
       mails = fetch(mailbox)
-      unless @session.read_only?
-        for mail in mails
-          flags = nil
-          flags = @att.get_new_flags(mail)
-          #for plugin in @mail_store.plugins
-          #flags = plugin.on_store(mail, @att, flags)
-          #end
-          mail.flags = flags
-          flags = mail.flags
-          unless @att.silent?
-            send_fetch_response(mail, flags)
-          end
-          queue_fetch_response(mail, flags)
+      mails.each do |mail|
+        flags = @att.get_new_flags(mail)
+        mail.flags = flags
+        flags = mail.flags
+        unless @att.silent?
+          send_fetch_response(mail, flags)
         end
+        queue_fetch_response(mail, flags)
       end
       @session.send_queued_responses(/\A\d+ EXPUNGE\z/)
       send_tagged_ok
@@ -792,7 +786,8 @@ module Heliotrope
     private
 
     def fetch(mailbox)
-      return mailbox.fetch(@sequence_set)
+      @mailbox = mailbox
+      @mail_store.fetch_mails(mailbox, @sequence_set, :seq)
     end
 
     def send_fetch_response(mail, flags)
@@ -808,16 +803,17 @@ module Heliotrope
     private
 
     def fetch(mailbox)
-      return mailbox.uid_fetch(@sequence_set)
+      @mailbox = mailbox
+      @mail_store.fetch_mails(mailbox, @sequence_set, :seq)
     end
 
     def send_fetch_response(mail, flags)
       @session.send_data("%d FETCH (FLAGS (%s) UID %d)",
-                         mail.seqno, flags.join(" "), mail.uid)
+                         mail.seqno_in(@mailbox), flags.join(" "), mail.uid)
     end
 
     def queue_fetch_response(mail, flags)
-      @session.push_queued_response(@session.current_mailbox, "#{mail.seqno} FETCH (FLAGS (#{flags.join(' ')}) UID #{mail.uid})")
+      @session.push_queued_response(@session.current_mailbox, "#{mail.seqno_in(@mailbox)} FETCH (FLAGS (#{flags.join(' ')}) UID #{mail.uid})")
     end
   end
 

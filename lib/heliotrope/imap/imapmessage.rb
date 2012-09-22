@@ -8,7 +8,11 @@ class IMAPMessage
   end
 
   def flags
-    @mail_store.fetch_labels_and_flags_for_message_id @uid
+    @mail_store.fetch_flags_for_message_id @uid
+  end
+
+  def flags=(new_flags)
+    @mail_store.set_flags_for_message_id @uid, new_flags
   end
 
   def seqno_in(mailbox_name)

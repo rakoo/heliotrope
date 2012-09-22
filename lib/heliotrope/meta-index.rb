@@ -510,8 +510,8 @@ private
     key = "labellist"
     labellist = load_set key
     labellist_new = labellist + labels.select { |l| is_valid_whistlepig_token? l }
-    
-    unless labelllist == labellist_new
+
+    unless labellist == labellist_new
       write_set key, labellist_new
       labels.each {|label| set_timestamp(label)}
     end

@@ -241,43 +241,27 @@ module Heliotrope
 			#get_mailbox(mailbox_name).append_mail_to_mailbox message, flags
 		#end
 
-		def fetch_labels_and_flags_for_message_id(message_id)
-			minfos = 	@metaindex.load_messageinfo(message_id)
+    def fetch_flags_for_message_id(message_id)
+      minfos = 	@metaindex.load_messageinfo(message_id)
       out = (minfos[:labels] + minfos[:state]).map do |l|
         SPECIAL_MAILBOXES.key(l) || "~" + l
-			end
+      end
 
-			out << "\\Seen" unless out.include?("~unread")
-			out
-		end
+      out << "\\Seen" unless out.include?("~unread")
+      out
+    end
 
-		#def set_labels_and_flags_for_message_id(message_id, flags)
-			#messageinfos = @heliotropeclient.messageinfos(message_id)
-			#thread_id = messageinfos["thread_id"]
-			#message_id = messageinfos["message_id"]
+    def set_flags_for_message_id(message_id, new_flags)
+      real_new_flags = new_flags.split.map {|flag| format_label_from_imap_to_heliotrope(flag) }
+      @metaindex.update_message_state message_id, real_new_flags
 
-			#flags.map! do |f|
-				#format_label_from_imap_to_heliotrope f
-			#end.compact!
-
-			## separate flags between labels and state
-			#state = flags.select{|f| MESSAGE_STATE.member?(f)}
-			#labels = flags - state
-
-			#@heliotropeclient.set_labels! thread_id, labels
-			#@heliotropeclient.set_state! message_id, state
-
-			#@heliotropeclient.messageinfos message_id
-		#end
+      thread_id = @metaindex.load_messageinfo(message_id)[:thread_id]
+      @metaindex.update_thread_labels thread_id, real_new_flags
+    end
 
 		#def fetch_date_for_uid(uid)
 			#Time.at(@heliotropeclient.messageinfos(uid).fetch("date"))
 		#end
-
-		#def next_uid key; @uid_store.member?(key) ?  Marshal.load(@uid_store[key]).to_i : 1 end
-		#def increment_next_uid key, value; @uid_store[key] = Marshal.dump(value.to_i) end
-		#def get_uids key; @uid_store.member?(key) ? Marshal.load(@uid_store[key]).to_hash : {} end
-		#def write_uids key, value; @uid_store[key] = Marshal.dump(value.to_hash) end
 
     def fetch_mails(mailbox_name, sequence_set, type)
 

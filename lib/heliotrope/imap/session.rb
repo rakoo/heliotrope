@@ -253,13 +253,8 @@ module Heliotrope
       send_line("+ " + msg)
     end
 
-    def all_session_on_idle?
-      @imapd.all_session_on_idle?
-    end
-
     def push_queued_response(mailbox_name, resp)
-      return if @@test && @imapd.nil?
-      @imapd.push_response(mailbox_name, resp, self)
+      push_response(mailbox_name, resp)
     end
 
     private
