@@ -56,8 +56,6 @@ module Heliotrope
 		# counterparts
 
     def initialize(metaindex, zmbox)
-      #@logger = @config[:logger]
-
       # When creating a mailbox, it doesn't exist as a label. We add it
       # to the fakemailboxes so that it can be selected by the client,
       # but it should be deleted afterwards (not done yet)
@@ -82,9 +80,7 @@ module Heliotrope
 				out << [SPECIAL_MAILBOXES.key(label) || "\~" + label, ""]
 			end
 
-			@fakemailboxes.each do |m|
-				out << m
-			end
+			@fakemailboxes.each { |m| out << m}
 
 			out.uniq
     end
@@ -242,7 +238,7 @@ module Heliotrope
 		#end
 
 		def fetch_flags_for_message_id(message_id)
-			minfos = @metaindex.load_messageinfo(message_id)
+			minfos = 	@metaindex.load_messageinfo(message_id)
       out = (minfos[:labels] + minfos[:state]).map do |l|
         SPECIAL_MAILBOXES.key(l) || "~" + l
       end
@@ -317,14 +313,14 @@ module Heliotrope
     # which start at 1
     def build_sequence_set mailbox_name
       state = mailbox_dirty_state mailbox_name, "sequence_set"
+
       if state[:dirty] or @cache[["sequence_set", mailbox_name]].nil?
         # cache is old, update it
         heliotrope_query = format_label_from_imap_to_heliotrope_query(mailbox_name)
         seq_set = search_messages(heliotrope_query).map{|mail| mail[:message_id]}.sort.unshift("shift")
 
-        @cache[["sequence_set", mailbox_name]] = seq_set
         @cache[["timestamp", "sequence_set", mailbox_name]] = state[:timestamp]
-        seq_set
+        @cache[["sequence_set", mailbox_name]] = seq_set
       else
         @cache[["sequence_set", mailbox_name]]
       end
@@ -364,8 +360,6 @@ module Heliotrope
       meta_timestamp = @metaindex.timestamp(hflag)
       cache_timestamp = @cache[["timestamp", method, mailbox_name]] || 0
 
-      p "cache for #{method}, #{mailbox_name} : #{cache_timestamp} - #{meta_timestamp}"
-
       if cache_timestamp < meta_timestamp
         {:dirty => true}
       else
@@ -391,11 +385,11 @@ module Heliotrope
 
 		def format_label_from_imap_to_heliotrope ilabel
 			if SPECIAL_MAILBOXES.key?(ilabel)
-				return SPECIAL_MAILBOXES.fetch(ilabel)
+				SPECIAL_MAILBOXES[ilabel]
 			elsif /^\\/.match(ilabel)
 				raise NoMailboxError.new("#{ilabel} is not a valid name!")
 			else
-				return ilabel.gsub(/^\~/,"") # remove ~ from the beginning of the label
+				ilabel.gsub(/^\~/,"") # remove ~ from the beginning of the label
 			end
 		end
 

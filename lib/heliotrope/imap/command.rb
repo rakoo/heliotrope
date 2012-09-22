@@ -463,7 +463,6 @@ module Heliotrope
 
   class ExpungeCommand < Command
     def exec
-      deleted_seqnos = nil
       @mailbox = @session.get_current_mailbox
       uids = @mailbox.uid_search(@mailbox.query&FlagQuery.new("\\Deleted"))
       deleted_mails = @mailbox.uid_fetch(uids).reverse
@@ -753,7 +752,6 @@ module Heliotrope
     end
 
     def exec
-      mails = nil
       mailbox = @session.get_current_mailbox
       mails = fetch(mailbox)
       mails.each do |mail|
@@ -841,7 +839,7 @@ module Heliotrope
 			# remove ~unread if flags_return contains \Seen
 			flags_return -= ["\~unread"] if flags_return.include?('\\Seen')
 
-      return flags_return.join(" ")
+      flags_return
     end
   end
 
@@ -859,7 +857,7 @@ module Heliotrope
 			# remove ~unread if flags_return contains \Seen
 			flags_return -= ["\~unread"] if @flags.include?('\\Seen')
 
-      return flags_return.join(" ")	
+      flags_return
     end
   end
 
@@ -870,7 +868,7 @@ module Heliotrope
 
 			# add ~unread if we want to remove \Seen
 			flags_return.push("~unread") if @flags.include?("\\Seen")
-      return flags_return.join(" ")
+      return flags_return
     end
   end
 
