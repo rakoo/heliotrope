@@ -57,6 +57,7 @@ class MetaIndex
     @debug = false
     reset_timers!
     check_version! if @index
+    init_timestamps!
   end
 
   def close
@@ -94,6 +95,12 @@ class MetaIndex
     else
       disk_version = load_string "version"
       raise VersionMismatchError.new(disk_version, my_version) unless my_version == disk_version
+    end
+  end
+
+  def init_timestamps!
+    (all_labels + MESSAGE_STATE).each do |flag|
+      set_timestamp!(flag) unless timestamp(flag)
     end
   end
 
