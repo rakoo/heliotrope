@@ -59,7 +59,7 @@ module Heliotrope
       # When creating a mailbox, it doesn't exist as a label. We add it
       # to the fakemailboxes so that it can be selected by the client,
       # but it should be deleted afterwards (not done yet)
-			@fakemailboxes = []
+			@fakemailboxes = Set.new
 
       @metaindex = metaindex
       @zmbox = zmbox
@@ -80,20 +80,20 @@ module Heliotrope
 				out << [SPECIAL_MAILBOXES.key(label) || "\~" + label, ""]
 			end
 
-			@fakemailboxes.each { |m| out << m}
+			@fakemailboxes.each { |m| out << [m[:name], m[:flags]]}
 
 			out.uniq
     end
 
-    def create_mailbox(name, query = nil)
-			all_mailboxes = mailboxes
+    def create_mailbox(name, session_id)
 			validate_imap_format!(name)
-			unless all_mailboxes.assoc(name).nil?
-				raise MailboxExistError.new("#{name} already exists")
-			end
-			@fakemailboxes << [name, ""]
+      raise MailboxExistError.new("#{name} already exists") if mailboxes.map(&:first).include?(name)
+			@fakemailboxes << {:name => name, :flags => "", :session_id => session_id}
     end
 
+    def logout_session(session_id)
+      @fakemailboxes.delete_if {|fakemailbox| fakemailbox[:session_id] == session_id}
+    end
 
 
 
@@ -171,11 +171,19 @@ module Heliotrope
 			# from the beginning
 			# - UNSEEN : number of messages without the \Seen FLAG
 
+      count, count_unseen = if mailbox_name == "All Mail"
+                              [@metaindex.size, messages_count("~unread")]
+                            elsif @fakemailboxes.map(&:first).include? mailbox_name
+                              [0, 0]
+                            else
+                              [messages_count(mailbox_name), messages_count(mailbox_name, true)]
+                            end
+
       {
         :recent => 0,
         :uidnext => @metaindex.size + 1,
-        :messages => mailbox_name == "All Mail" ? @metaindex.size : messages_count(mailbox_name),
-        :unseen => messages_count(mailbox_name, true),
+        :messages => count,
+        :unseen => count_unseen,
         :uidvalidity => 1 #FIXME
       }
     end

@@ -91,6 +91,7 @@ module Heliotrope
 
   class LogoutCommand < Command
     def exec
+      @mail_store.logout_session(self.object_id)
       @session.send_data("BYE IMAP server terminating connection")
       send_tagged_ok
       @session.logout
@@ -177,7 +178,7 @@ module Heliotrope
 
     def exec
       begin
-        @mail_store.create_mailbox(@mailbox_name)
+        @mail_store.create_mailbox(@mailbox_name, self.object_id)
         @session.send_queued_responses
         send_tagged_ok
       rescue InvalidQueryError
