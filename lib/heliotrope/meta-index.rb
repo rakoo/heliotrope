@@ -100,7 +100,7 @@ class MetaIndex
 
   def init_timestamps!
     (all_labels + MESSAGE_STATE).each do |flag|
-      set_timestamp!(flag) unless timestamp(flag)
+      set_timestamps!(flag) unless timestamp(flag)
     end
   end
 
@@ -152,6 +152,9 @@ class MetaIndex
 
     ## add the labels to the set of all labels we've ever seen
     add_labels_to_labellist! labels
+
+    ## Update timestamps of concerned flags
+    set_timestamps! labels + state
 
     ## congrats, you have a doc and a thread!
     [docid, threadid]
@@ -230,7 +233,7 @@ class MetaIndex
     threadinfo = load_hash "thread/#{threadid}"
     write_thread_message_labels! threadinfo[:structure], new_tlabels
 
-    (old_tlabels + new_tlabels).each {|label| set_timestamp! label}
+    set_timestamps! old_tlabels + new_tlabels
     new_tlabels
   end
 
@@ -392,9 +395,15 @@ class MetaIndex
 
   def timestamp(flag); load_int("timestamp/#{flag}") end
 
-private
+  private
 
-  def set_timestamp!(flag); write_int("timestamp/#{flag}", Time.now.to_i) end
+  def set_timestamps!(flags)
+    if flags.respond_to? :to_a
+      flags.to_a.flatten
+    else
+      [flags]
+    end.each {|flag| write_int("timestamp/#{flag}", Time.now.to_i)}
+  end
 
   # Return a hash with keys being the flags (:labels or :state) and
   # values being the number of messages for that flag
@@ -455,7 +464,7 @@ private
 
     if changed
       write_set key, new_mstate
-      set_timestamp! state
+      set_timestamps! (old_mstate + new_mstate)
     end
     [changed, new_mstate]
   end
