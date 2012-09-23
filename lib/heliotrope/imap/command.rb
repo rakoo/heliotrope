@@ -308,24 +308,19 @@ module Heliotrope
       @message = message
     end
 
-    def send_tagged_ok_append
-			mailbox_status = @mail_store.get_mailbox_status(@mailbox_name, "fake") #TODO remove the 2nd arg
-			uidvalidity = mailbox_status.uidvalidity
-			@session.send_tagged_ok(@tag, "[APPENDUID %s %s]", uidvalidity, @response[:uid])
-    end
+    # only with UIDPLUS. Maybe one day.
+    #def send_tagged_ok_append
+			#uidvalidity = @mail_store.get_mailbox_status(@mailbox_name)[:uidvalidity]
+			#@session.send_tagged_ok(@tag, "[APPENDUID %s %s]", uidvalidity, @response[:uid])
+    #end
 
     def exec
-      begin
-        puts "appending in command"
-        @response = @mail_store.append_mail(@message, @mailbox_name, @flags)
-        puts "append ok in command"
-      rescue MailboxExistError => e
-        puts e.inspect
-      end
-      n = @mail_store.get_mailbox_status(@mailbox_name, true).messages
-      @session.push_queued_response(@mailbox_name, "#{n} EXISTS")
+      @mail_store.append_mail(@message, @mailbox_name, @flags)
+      count = @mail_store.get_mailbox_status(@mailbox_name)[:messages]
+      @session.push_queued_response(@mailbox_name, "#{count} EXISTS")
       @session.send_queued_responses
-      send_tagged_ok_append
+      #send_tagged_ok_append
+      send_tagged_ok
     end
   end
 

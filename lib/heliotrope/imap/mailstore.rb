@@ -224,6 +224,33 @@ module Heliotrope
       ret
     end
 
+    def append_mail rawbody, mailbox, flags
+      message = Message.new(rawbody).parse!
+
+      if @metaindex.contains_safe_msgid? message.safe_msgid
+        doc_id, thread_id = @metaindex.fetch_docid_for_safe_msgid message.safe_msgid
+
+        heliotrope_flags = ([mailbox] + flags).map do |flag| 
+          validate_imap_format! flag
+          format_label_from_imap_to_heliotrope(flag)
+        end.compact
+
+        @metaindex.update_message_state doc_id, heliotrope_flags
+        @metaindex.update_thread_labels thread_id, heliotrope_flags
+      else
+        loc = @zmbox.add rawbody
+        doc_id, thread_id = @metaindex.add_message message, state, labels, {:loc => loc}
+
+        ## add any "important" contacts to the set of all contacts we've ever seen
+        unless message.is_list_or_automated_email?
+          ## just add the sender, for now. we can think about whether to add
+          ## recipients as well later.
+          @metaindex.touch_contact! message.from
+        end
+      end
+
+    end
+
 		def fetch_flags_for_message_id(message_id)
 			minfos = 	@metaindex.load_messageinfo(message_id)
       out = (minfos[:labels] + minfos[:state]).map do |l|
