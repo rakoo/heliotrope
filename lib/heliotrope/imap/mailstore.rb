@@ -37,7 +37,7 @@ module Heliotrope
 		MESSAGE_MUTABLE_STATE_HASH = {
 			"\\Starred"	=>	"starred",
 			"\\Seen"	=>	nil,
-			"\\Deleted"	=>	"deleted",
+			"\\Deleted"	=>	"imap_deleted",
 			nil	=>	"unread"
 		}
 	
@@ -205,6 +205,24 @@ module Heliotrope
       name
     end
 
+    def expunge(mailbox_name)
+      to_delete_seq_set = build_sequence_set("\\Deleted")
+      mailbox_seq_set = build_sequence_set(mailbox_name)
+
+      expungables = (to_delete_seq_set & mailbox_seq_set) - ["shift"]
+
+      ret = []
+      expungables.each do |message_id|
+        old_flags = fetch_flags_for_message_id(message_id)
+        new_flags = old_flags - [mailbox_name] - ["\\Deleted"]
+        set_flags_for_message_id(message_id, new_flags)
+
+        ret << to_delete_seq_set.index(message_id)
+        to_delete_seq_set.delete(message_id)
+      end
+
+      ret
+    end
 
 		def fetch_flags_for_message_id(message_id)
 			minfos = 	@metaindex.load_messageinfo(message_id)
