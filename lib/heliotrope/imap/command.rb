@@ -74,39 +74,13 @@ module Heliotrope
     end
   end
 
-  #class RequireSecureSessionCommand < Command
-    #def exec
-      #@session.send_tagged_no(@tag, "secure session required by the server/use IMAPS or TLS please")
-    #end
-  #end
-
   class CapabilityCommand < Command
     def exec
-      capa = "CAPABILITY IMAP4REV1 IDLE UIDPLUS"
-      #if @session.config["starttls"]
-        #capa += " STARTTLS"
-      #end
+      capa = "CAPABILITY IMAP4REV1 IDLE"
       @session.send_data(capa)
       send_tagged_ok
     end
   end
-
-  #class StarttlsCommand < Command
-    #def exec
-      #begin
-        #@session.starttls
-        #send_tagged_ok
-      #rescue => e
-        #@session.send_tagged_bad(@tag, e.message)
-        #return
-      #end
-      #begin
-        #@session.starttls_accept
-      #rescue Exception => e
-        #@session.send_tagged_bad(@tag, e.message)
-      #end
-    #end
-  #end
 
   class NoopCommand < Command
     def exec
@@ -128,57 +102,6 @@ module Heliotrope
       line = @session.recv_line
     end
   end
-
-  #class AuthenticateCramMD5Command < Command
-    #def exec
-      #challenge = @@challenge_generator.call
-      #@session.send_continue_req([challenge].pack("m").gsub("\n", ""))
-      #line = @session.recv_line
-      #s = line.unpack("m")[0]
-      #digest = hmac_md5(challenge, @config[:password])
-      #expected = @config[:user] + " " + digest
-      #if s == expected
-        #@session.login
-        #send_tagged_ok
-      #else
-        #sleep(3)
-        #@session.send_tagged_no(@tag, "AUTHENTICATE failed")
-      #end
-    #end
-
-    #@@challenge_generator = Proc.new {
-      #format("<%s.%f@%s>",
-             #Process.pid, Time.new.to_f,
-             #TCPSocket.gethostbyname(Socket.gethostname)[0])
-    #}
-
-    #def self.challenge_generator
-      #return @@challenge_generator
-    #end
-
-    #def self.challenge_generator=(proc)
-      #@@challenge_generator = proc
-    #end
-
-    #private
-
-    #def hmac_md5(text, key)
-      #if key.length > 64
-        #key = Digest::MD5.digest(key)
-      #end
-
-      #k_ipad = key + "\0" * (64 - key.length)
-      #k_opad = key + "\0" * (64 - key.length)
-      #for i in 0..63
-        #k_ipad[i] ^= 0x36
-        #k_opad[i] ^= 0x5c
-      #end
-
-      #digest = Digest::MD5.digest(k_ipad + text)
-
-      #return Digest::MD5.hexdigest(k_opad + digest)
-    #end
-  #end
 
   class LoginCommand < Command
     def initialize(userid, password)
@@ -900,16 +823,16 @@ module Heliotrope
 		end
 					
 
-		# supersede to be conform to UIDPLUS
-    def send_tagged_ok_copy
-			mailbox_status = @mail_store.get_mailbox_status(@mailbox_name)
-			uidvalidity = mailbox_status.uidvalidity
-			seq_before = @sequence_set
+		## supersede to be conform to UIDPLUS
+    #def send_tagged_ok_copy
+			#mailbox_status = @mail_store.get_mailbox_status(@mailbox_name)
+			#uidvalidity = mailbox_status.uidvalidity
+			#seq_before = @sequence_set
 
-			sequence_set_before_copy = format_seqsets_to_output(seq_before)
-			sequence_set_after_copy = format_seqsets_to_output(@seq_after)
-			@session.send_tagged_ok(@tag, "[COPYUID #{uidvalidity} #{sequence_set_before_copy} #{sequence_set_after_copy}] Done")
-    end
+			#sequence_set_before_copy = format_seqsets_to_output(seq_before)
+			#sequence_set_after_copy = format_seqsets_to_output(@seq_after)
+			#@session.send_tagged_ok(@tag, "[COPYUID #{uidvalidity} #{sequence_set_before_copy} #{sequence_set_after_copy}] Done")
+    #end
 
     def exec
       mailbox = @session.get_current_mailbox

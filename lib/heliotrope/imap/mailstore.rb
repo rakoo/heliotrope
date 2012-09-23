@@ -197,45 +197,6 @@ module Heliotrope
       name
     end
 
-    #def delete_mail(mailbox, seqno)
-			#puts "; trying to delete mail seq #{seqno} in #{mailbox.name}"
-			#ret = mailbox.delete_seqno(seqno)
-			#ret
-    #end
-
-		#def copy_mails_to_mailbox(mails, mailbox)
-			#out = []
-
-			#mailbox_name = mailbox.name
-			#validate_imap_format!(mailbox_name)
-			#all_mailboxes = mailboxes
-			#raise MailboxExistError.new("[TRYCREATE] #{mailbox_name} doesn't exist") if
-		 		#all_mailboxes.assoc(mailbox_name).nil?
-			#raise NotSelectableMailboxError.new("#{mailbox_name} is not selectable") if
-				#all_mailboxes.assoc(mailbox_name).include?("\\Noselect")
-
-			#puts "copy mails to #{mailbox_name}"
-
-			#dst_mailbox = get_mailbox(mailbox_name)
-
-			#hlabel = format_label_from_imap_to_heliotrope mailbox_name
-			#mails.each do |m|
-				#response = dst_mailbox.append_mail(m)
-				#out << response[:uid]
-			#end
-
-			#out
-		#end
-
-
-		#def append_mail(message, mailbox_name, flags)
-			#all_mailboxes = mailboxes
-			#validate_imap_format! mailbox_name
-			#raise MailboxExistError.new("[TRYCREATE] #{mailbox_name} doesn't exist") if
-		 		#all_mailboxes.assoc(mailbox_name).nil?
-
-			#get_mailbox(mailbox_name).append_mail_to_mailbox message, flags
-		#end
 
 		def fetch_flags_for_message_id(message_id)
 			minfos = 	@metaindex.load_messageinfo(message_id)
