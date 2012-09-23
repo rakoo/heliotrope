@@ -209,7 +209,7 @@ module Heliotrope
     end
 
     def set_flags_for_message_id(message_id, new_flags)
-      real_new_flags = new_flags.split.map {|flag| format_label_from_imap_to_heliotrope(flag) }
+      real_new_flags = new_flags.map {|flag| format_label_from_imap_to_heliotrope(flag) }.compact
       @metaindex.update_message_state message_id, real_new_flags
 
       thread_id = @metaindex.load_messageinfo(message_id)[:thread_id]
