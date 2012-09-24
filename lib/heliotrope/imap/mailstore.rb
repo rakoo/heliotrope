@@ -82,6 +82,8 @@ module Heliotrope
 
 			@fakemailboxes.each { |m| out << [m[:name], m[:flags]]}
 
+      out << ["All Mail", ""]
+
 			out.uniq
     end
 
@@ -109,9 +111,7 @@ module Heliotrope
 			# from the beginning
 			# - UNSEEN : number of messages without the \Seen FLAG
 
-      count, count_unseen = if mailbox_name == "All Mail"
-                              [@metaindex.size, messages_count("~unread")]
-                            elsif @fakemailboxes.map(&:first).include? mailbox_name
+      count, count_unseen = if @fakemailboxes.map(&:first).include? mailbox_name
                               [0, 0]
                             else
                               [messages_count(mailbox_name), messages_count(mailbox_name, true)]
@@ -304,24 +304,40 @@ module Heliotrope
     # Is the mailbox dirty ? Specified by its last-touched timestamp as
     # given by the meta-index, compared to local cache value.
     def mailbox_dirty_state mailbox_name, method
-      hflag = format_label_from_imap_to_heliotrope(mailbox_name)
-      meta_timestamp = @metaindex.timestamp(hflag)
-      cache_timestamp = @cache[["timestamp", method, mailbox_name]] || 0
 
-      if cache_timestamp < meta_timestamp
-        {:dirty => true}
+      if mailbox_name == "All Mail"
+        meta_size = @metaindex.size
+        cache_size = @cache[["count", "All Mail"]] || 0
+        
+        if cache_size < meta_size
+          {:dirty => true}
+        else
+          {:dirty => false}
+        end.merge({:timestamp => Time.now.to_i})
       else
-        {:dirty => false}
-      end.merge({:timestamp => meta_timestamp})
+        hflag = format_label_from_imap_to_heliotrope(mailbox_name)
+        meta_timestamp = @metaindex.timestamp(hflag)
+        cache_timestamp = @cache[["timestamp", method, mailbox_name]] || 0
+
+        if cache_timestamp < meta_timestamp
+          {:dirty => true}
+        else
+          {:dirty => false}
+        end.merge({:timestamp => meta_timestamp})
+      end
 
     end
 
     # search for a name and return messages associated to this query
     # query can be a label (~label, with the tilde), or a complex query.
     def search_messages query
-      query = Heliotrope::Query.new "body", query
-      @metaindex.set_query query
-      @metaindex.get_some_results @metaindex.size, :messages
+      if query == "All Mail"
+        1.upto(@metaindex.size).map {|i| @metaindex.load_messageinfo(i)}.compact
+      else
+        query = Heliotrope::Query.new "body", query.gsub(/All Mail/,"").strip
+        @metaindex.set_query query
+        @metaindex.get_some_results @metaindex.size, :messages
+      end
     end
 
 		def validate_imap_format!(label)
