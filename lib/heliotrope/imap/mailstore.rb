@@ -278,7 +278,8 @@ module Heliotrope
       state_mailbox = mailbox_dirty_state mailbox_name, "count"
 
       if with_unread
-        state_unread = mailbox_dirty_state "~unread", "count"
+
+        state_unread = mailbox_dirty_state "~unread", "unread_for_count"
         state = {
           :dirty => state_mailbox[:dirty] || state_unread[:dirty],
           :timestamp => [state_mailbox[:timestamp], state_unread[:timestamp]].max
@@ -295,6 +296,7 @@ module Heliotrope
         count = search_messages(search_label).size
 
         @cache[["timestamp", "count", mailbox_name]] = state[:timestamp]
+        @cache[["timestamp", "unread_for_count", "~unread"]] = state_unread[:timestamp] if state_unread
         @cache[[key, mailbox_name]] = count
       else
         @cache[[key, mailbox_name]]
