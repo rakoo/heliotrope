@@ -70,7 +70,7 @@ class Message
       raise InvalidMessageError, e.message
     end
     @refs += in_reply_to unless @refs.member?(in_reply_to.first)
-    @safe_refs = @refs.nil? ? [] : @refs.map { |r| munge_msgid(r) }
+    @safe_refs = @refs.nil? ? [] : @refs.compact.map { |r| munge_msgid(r) }
 
     ## various other headers that you don't think we will need until we
     ## actually need them.
