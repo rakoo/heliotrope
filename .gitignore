@@ -1,9 +1,0 @@
-.*.swp
-.*.swo
-tags
-.gitignore
-offlineimaprc
-
-test/imap/1_cap_login_select_list_logout
-test/imap/2_login_select_fetchflags_logout
-test/imap/3_loin_select_uidfetchflags_logout
