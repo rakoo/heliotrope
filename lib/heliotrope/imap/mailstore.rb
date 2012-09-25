@@ -111,7 +111,7 @@ module Heliotrope
 			# from the beginning
 			# - UNSEEN : number of messages without the \Seen FLAG
 
-      count, count_unseen = if @fakemailboxes.map(&:first).include? mailbox_name
+      count, count_unseen = if @fakemailboxes.map{|mb| mb[:name]}.include? mailbox_name
                               [0, 0]
                             else
                               [messages_count(mailbox_name), messages_count(mailbox_name, true)]
@@ -177,6 +177,17 @@ module Heliotrope
         @metaindex.update_thread_labels thread_id, heliotrope_flags
       else
         loc = @zmbox.add rawbody
+
+        state = ([mailbox] + flags) & MESSAGE_STATE.to_a
+        state.map! {|sta| format_label_from_imap_to_heliotrope(sta)}.compact
+        if state.include? "\Seen"
+          state.delete "\Seen"
+        else
+          state << "unread"
+        end
+
+        labels = flags - state
+
         doc_id, thread_id = @metaindex.add_message message, state, labels, {:loc => loc}
 
         ## add any "important" contacts to the set of all contacts we've ever seen
@@ -186,6 +197,8 @@ module Heliotrope
           @metaindex.touch_contact! message.from
         end
       end
+
+      @fakemailboxes.delete_if{|mb| mb[:name] == mailbox}
 
     end
 
