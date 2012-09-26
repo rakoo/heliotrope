@@ -24,7 +24,7 @@
 # SUCH DAMAGE.
 
 module Heliotrope
-  class Query
+  class IMAPQuery
 
     def ==(other)
       return self.class == other.class
@@ -65,7 +65,7 @@ module Heliotrope
     end
   end
 
-  class NullQuery < Query
+  class NullQuery < IMAPQuery
     def &(other)
       return other
     end
@@ -87,7 +87,7 @@ module Heliotrope
     end
   end
 
-  class CompositeQuery < Query
+  class CompositeQuery < IMAPQuery
     attr_reader :operands
 
     def initialize(operands)
@@ -155,7 +155,7 @@ module Heliotrope
     end
   end
 
-  class TermQuery < Query
+  class TermQuery < IMAPQuery
     attr_reader :value
 
     def initialize(value)
@@ -171,7 +171,7 @@ module Heliotrope
     end
   end
 
-  class PropertyQuery < Query
+  class PropertyQuery < IMAPQuery
     attr_reader :name, :value
 
     def initialize(name, value)
@@ -270,7 +270,7 @@ module Heliotrope
     end
   end
 
-  class AbstractFlagQuery < Query
+  class AbstractFlagQuery < IMAPQuery
     attr_reader :flag
 
     def initialize(flag)
