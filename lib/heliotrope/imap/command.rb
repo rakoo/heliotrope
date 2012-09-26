@@ -76,7 +76,7 @@ module Heliotrope
 
   class CapabilityCommand < Command
     def exec
-      capa = "CAPABILITY IMAP4REV1 IDLE"
+      capa = "CAPABILITY IMAP4REV1 IDLE UIDPLUS"
       @session.send_data(capa)
       send_tagged_ok
     end
@@ -308,18 +308,17 @@ module Heliotrope
       @message = message
     end
 
-    # only with UIDPLUS. Maybe one day.
-    #def send_tagged_ok_append
-			#uidvalidity = @mail_store.get_mailbox_status(@mailbox_name)[:uidvalidity]
-			#@session.send_tagged_ok(@tag, "[APPENDUID %s %s]", uidvalidity, @response[:uid])
-    #end
+    def send_tagged_ok_append
+			uidvalidity = @mail_store.get_mailbox_status(@mailbox_name)[:uidvalidity]
+			@session.send_tagged_ok(@tag, "[APPENDUID %s %s]", uidvalidity, @response_uid)
+    end
 
     def exec
-      @mail_store.append_mail(@message, @mailbox_name, @flags)
+      @response_uid = @mail_store.append_mail(@message, @mailbox_name, @flags)
       count = @mail_store.get_mailbox_status(@mailbox_name)[:messages]
       @session.push_queued_response(@mailbox_name, "#{count} EXISTS")
       @session.send_queued_responses
-      #send_tagged_ok_append
+      send_tagged_ok_append
       send_tagged_ok
     end
   end

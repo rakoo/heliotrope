@@ -200,6 +200,7 @@ module Heliotrope
 
       @fakemailboxes.delete_if{|mb| mb[:name] == mailbox}
 
+      doc_id
     end
 
 		def fetch_flags_for_message_id(message_id)
