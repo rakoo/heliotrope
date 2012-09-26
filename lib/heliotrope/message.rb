@@ -18,7 +18,11 @@ module Mail
     # Make sure the message has valid message ids for the message, and
     # fetch them
     def fetch_message_ids field
-      self[field] ? self[field].message_ids || [self[field].message_id] : []
+      begin
+        self[field] ? self[field].message_ids || [self[field].message_id] : []
+      rescue
+        []
+      end
     end
 
   end
