@@ -333,7 +333,7 @@ module Heliotrope
         end.merge({:timestamp => Time.now.to_i})
       else
         hflag = format_label_from_imap_to_heliotrope(mailbox_name)
-        meta_timestamp = @metaindex.timestamp(hflag)
+        meta_timestamp = @metaindex.timestamp(hflag) || Time.now.to_i
         cache_timestamp = @cache[["timestamp", method, mailbox_name]] || 0
 
         if cache_timestamp < meta_timestamp
