@@ -216,10 +216,14 @@ module Heliotrope
     def set_flags_for_message_id(message_id, new_flags)
       new_flags << "~unread" unless new_flags.include?("\\Seen")
       real_new_flags = new_flags.map {|flag| format_label_from_imap_to_heliotrope(flag) }.compact
-      @metaindex.update_message_state message_id, real_new_flags
 
+      state = real_new_flags & MESSAGE_STATE.to_a
+      @metaindex.update_message_state message_id, state
+
+      labels = real_new_flags - MESSAGE_STATE.to_a
       thread_id = @metaindex.load_messageinfo(message_id)[:thread_id]
-      @metaindex.update_thread_labels thread_id, real_new_flags
+      @metaindex.update_thread_labels thread_id, labels
+
     end
 
     def fetch_mails(mailbox_name, sequence_set, type)
