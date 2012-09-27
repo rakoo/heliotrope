@@ -233,7 +233,7 @@ class MetaIndex
     threadinfo = load_hash "thread/#{threadid}"
     write_thread_message_labels! threadinfo[:structure], new_tlabels
 
-    set_timestamps! old_tlabels + new_tlabels
+    set_timestamps! old_tlabels + new_tlabels if old_tlabels != new_tlabels
     new_tlabels
   end
 
