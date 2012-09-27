@@ -180,8 +180,8 @@ module Heliotrope
 
         state = ([mailbox] + flags) & MESSAGE_STATE.to_a
         state.map! {|sta| format_label_from_imap_to_heliotrope(sta)}.compact
-        if state.include? "\Seen"
-          state.delete "\Seen"
+        if state.include? "\\Seen"
+          state.delete "\\Seen"
         else
           state << "unread"
         end
@@ -214,6 +214,7 @@ module Heliotrope
     end
 
     def set_flags_for_message_id(message_id, new_flags)
+      new_flags << "~unread" unless new_flags.include?("\\Seen")
       real_new_flags = new_flags.map {|flag| format_label_from_imap_to_heliotrope(flag) }.compact
       @metaindex.update_message_state message_id, real_new_flags
 
