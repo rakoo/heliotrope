@@ -308,7 +308,13 @@ module Heliotrope
       if state[:dirty] or @cache[[key, mailbox_name]].nil?
         search_label = format_label_from_imap_to_heliotrope_query(mailbox_name)
         search_label += " ~unread" if with_unread
-        count = search_messages(search_label).size
+        if search_label == "All Mail"
+          count = @metaindex.size
+        else
+          query = Heliotrope::Query.new "body", search_label.gsub(/All Mail/,"").strip
+          @metaindex.set_query query
+          count = @metaindex.count_results
+        end
 
         @cache[["timestamp", "count", mailbox_name]] = state[:timestamp]
         @cache[["timestamp", "unread_for_count", "~unread"]] = state_unread[:timestamp] if state_unread
