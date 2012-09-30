@@ -145,7 +145,7 @@ class Message
             content
           end
         end
-      ).flatten.compact.join(" ")
+      ).flatten.compact.map{|field| Decoder.transcode(Encoding::UTF_8, field.encoding, field)}.join(" ")
 
       v.gsub(/\s+[\W\d_]+(\s|$)/, " "). # drop funny tokens
         gsub(/\s+/, " ")
