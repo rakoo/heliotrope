@@ -32,22 +32,24 @@ module Heliotrope
 
   class MailStore
 
-		MESSAGE_IMMUTABLE_STATE = Set.new %w(attachment signed encrypted draft)
+		MESSAGE_IMMUTABLE_STATE = Set.new %w(attachment signed encrypted draft sent)
 
-		MESSAGE_MUTABLE_STATE_HASH = {
-			"\\Starred"	=>	"starred",
-			"\\Seen"	=>	nil,
-			"\\Deleted"	=>	"imap_deleted",
-			nil	=>	"unread"
-		}
-	
-		MESSAGE_STATE = Set.new(MESSAGE_MUTABLE_STATE_HASH.values) + MESSAGE_IMMUTABLE_STATE
+    MESSAGE_MUTABLE_STATE_HASH = {
+      "\\Starred"	=>	"starred",
+      "\\Seen"	=>	nil,
+      "\\Sent"  => "sent",
+      "\\Deleted"	=>	"imap_deleted",
+      nil	=>	"unread",
+      "\\Flagged" => "starred"
+    }
 
-		SPECIAL_MAILBOXES = MESSAGE_MUTABLE_STATE_HASH.merge( 
+		MESSAGE_STATE = Set.new(MESSAGE_MUTABLE_STATE_HASH.values.compact) + MESSAGE_IMMUTABLE_STATE
+
+		SPECIAL_MAILBOXES = MESSAGE_MUTABLE_STATE_HASH.merge(
 		{
 			"\\Answered" => nil,
 		 	"\\Draft" => "draft",
-			"Sent"	=> "sent",
+			"\\Sent"	=> "sent",
 		 	"All Mail" => nil,
 		 	"INBOX" => "inbox"
 		})
@@ -67,7 +69,7 @@ module Heliotrope
     end
 
     def mailboxes
-			labels = @metaindex.all_labels
+			labels = @metaindex.all_labels + Heliotrope::MetaIndex::MESSAGE_STATE
 
 			#Format to return:
 			#[
@@ -83,6 +85,7 @@ module Heliotrope
 			@fakemailboxes.each { |m| out << [m[:name], m[:flags]]}
 
       out << ["All Mail", ""]
+
 
 			out.uniq
     end
