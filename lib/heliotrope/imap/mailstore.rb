@@ -164,30 +164,12 @@ module Heliotrope
 
     def append_mail rawbody, mailbox, flags
       message = Message.new(rawbody).parse!
+      state, labels = split_state_labels([mailbox] + flags)
 
       if @metaindex.contains_safe_msgid? message.safe_msgid
         doc_id, thread_id = @metaindex.fetch_docid_for_safe_msgid message.safe_msgid
-
-        heliotrope_flags = ([mailbox] + flags).map do |flag| 
-          validate_imap_format! flag
-          format_label_from_imap_to_heliotrope(flag)
-        end.compact
-
-        @metaindex.update_message_state doc_id, heliotrope_flags
-        @metaindex.update_thread_labels thread_id, heliotrope_flags
       else
         loc = @zmbox.add rawbody
-
-        state = ([mailbox] + flags) & MESSAGE_STATE.to_a
-        state.map! {|sta| format_label_from_imap_to_heliotrope(sta)}.compact
-        if state.include? "\\Seen"
-          state.delete "\\Seen"
-        else
-          state << "unread"
-        end
-
-        labels = flags - state
-
         doc_id, thread_id = @metaindex.add_message message, state, labels, {:loc => loc}
 
         ## add any "important" contacts to the set of all contacts we've ever seen
@@ -197,6 +179,9 @@ module Heliotrope
           @metaindex.touch_contact! message.from
         end
       end
+
+      @metaindex.update_message_state doc_id, state
+      @metaindex.update_thread_labels thread_id, labels
 
       @fakemailboxes.delete_if{|mb| mb[:name] == mailbox}
 
@@ -214,13 +199,9 @@ module Heliotrope
     end
 
     def set_flags_for_message_id(message_id, new_flags)
-      new_flags << "~unread" unless new_flags.include?("\\Seen")
-      real_new_flags = new_flags.map {|flag| format_label_from_imap_to_heliotrope(flag) }.compact
-
-      state = real_new_flags & MESSAGE_STATE.to_a
+      state, labels = split_state_labels(new_flags)
       @metaindex.update_message_state message_id, state
 
-      labels = real_new_flags - MESSAGE_STATE.to_a
       thread_id = @metaindex.load_messageinfo(message_id)[:thread_id]
       @metaindex.update_thread_labels thread_id, labels
 
@@ -273,6 +254,18 @@ module Heliotrope
     end
 
 		private
+
+    # Get [state, labels] from flags
+    def split_state_labels flags
+      flags << "~unread" unless flags.include?("\\Seen")
+      new_flags = flags.map do |flag|
+        validate_imap_format! flag
+        format_label_from_imap_to_heliotrope(flag)
+      end.compact
+
+      [new_flags & MESSAGE_STATE.to_a, new_flags - MESSAGE_STATE.to_a]
+    end
+      
 
     # Build an array that lists message_ids in this mailbox in ascending
     # order like ["shift", 47, 52, 312]
@@ -372,7 +365,6 @@ module Heliotrope
 				raise NoMailboxError.new("#{label} doesn't exist or is invalid")
 			end
 		end
-
 
 		def format_label_from_imap_to_heliotrope ilabel
 			if SPECIAL_MAILBOXES.key?(ilabel)
