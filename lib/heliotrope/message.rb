@@ -36,8 +36,10 @@ class Message
     @m = Mail.read_from_string @rawbody
 
     # Mail::MessageIdField.message_id returns the msgid with < and >, which is not correct
+    unless @m.message_id
+      @m.message_id = "<#{Time.now.to_i}-defaulted-#{munge_msgid @m.header.to_s}@heliotrope>"
+    end
     @msgid = @m.message_id
-    raise InvalidMessageError, "Msgid looks empty. Ending operations here." if (@msgid.nil? || @msgid.empty?)
     @safe_msgid = munge_msgid @msgid
 
     @from = Person.from_string @m.fetch_header(:from)
@@ -49,11 +51,7 @@ class Message
         ""
     end
 
-    @date = begin
-      @m.date.to_time.to_i
-    rescue ArgumentError
-      0
-    end
+    @date = (@m.date || Time.now).to_time.to_i
 
     @to = Person.many_from_string(@m.fetch_header(:to))
     @cc = Person.many_from_string(@m.fetch_header(:cc))

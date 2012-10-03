@@ -24,7 +24,7 @@ class Person
   ## e.g. for William Morgan <wmorgan@example.com>, returns
   ##  ["William Morgan", wmorgan@example.com, wmorgan]
   def self.from_string string # ripped from sup
-    return if string.nil? || string.empty?
+    return Person.new("", "", "") if string.nil? || string.empty?
 
     name, email, handle = case string
     when /^(["'])(.*?[^\\])\1\s*<((\S+?)#{AT_RE}\S+?)>/
