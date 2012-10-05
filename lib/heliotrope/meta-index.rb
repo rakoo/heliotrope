@@ -270,40 +270,26 @@ class MetaIndex
 
     startt = Time.now
     
-    if type == :threads
-
-      threadids = []
-      until threadids.size >= num
-        index_docid = @index.run_query(@query.whistlepig_q, 1).first
-        break unless index_docid
-        doc_id, thread_id = get_thread_id_from_index_docid index_docid
-        next if @seen_threads.include? thread_id
-        @seen_threads << thread_id
-        threadids << thread_id
-      end
-
-      loadt = Time.now
-      results = threadids.map { |id| load_threadinfo id }
-
-    elsif type == :messages
-
-      messages = []
-      until messages.size >= num
-        index_docid = @index.run_query(@query.whistlepig_q, 1).first
-        break unless index_docid
-        doc_id, thread_id = get_thread_id_from_index_docid index_docid
-        tmp_messages = load_thread_messageinfos(thread_id).map(&:first)
-        tmp_messages.each do |tmp_message|
-          next if @seen_message_ids.include?(tmp_message[:message_id]) or tmp_message[:message_id].nil?
-          @seen_message_ids << tmp_message[:message_id]
-          messages << tmp_message
-        end
-      end
-
-      loadt = Time.now
-      results = messages
-
+    threadids = []
+    until threadids.size >= num
+      index_docid = @index.run_query(@query.whistlepig_q, 1).first
+      break unless index_docid
+      doc_id, thread_id = get_thread_id_from_index_docid index_docid
+      next if @seen_threads.include? thread_id
+      @seen_threads << thread_id
+      threadids << thread_id
     end
+
+    loadt = Time.now
+
+    results = case type
+              when :threads
+                threadids.map { |id| load_threadinfo id }
+              when :messages
+                threadids.map do |threadid|
+                  load_thread_messageinfos(threadid).map(&:first).compact
+                end.flatten
+              end
 
     endt = Time.now
     printf "# search %.1fms, load %.1fms\n", 1000 * (loadt - startt), 1000 * (endt - startt)
