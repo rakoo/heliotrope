@@ -60,7 +60,7 @@ To add a pre-existing mbox:
   ruby -Ilib bin/heliotrope-import -m <mbox> -d <mailstore>
 
 To add a pre-existing maildir:
-  ruby -Ilib bin/heliotrope-import -a <maildir> -d <mailstore>
+  ruby -Ilib bin/heliotrope-import -l <maildir> -d <mailstore>
 
 To add a pre-existing Gmail account:
   ruby -Ilib bin/heliotrope-import -g <gmail username> -d <mailstore>
