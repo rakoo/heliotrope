@@ -18,7 +18,11 @@ module Mail
     # Make sure the message has valid message ids for the message, and
     # fetch them
     def fetch_message_ids field
-      self[field] ? self[field].message_ids || [self[field].message_id] : []
+      begin
+        self[field] ? self[field].message_ids || [self[field].message_id] : []
+      rescue
+        []
+      end
     end
 
   end
@@ -139,7 +143,7 @@ class Message
             content
           end
         end
-      ).flatten.compact.join(" ")
+      ).flatten.compact.map{|field| Decoder.transcode(Encoding::UTF_8, field.encoding, field)}.join(" ")
 
       v.gsub(/\s+[\W\d_]+(\s|$)/, " "). # drop funny tokens
         gsub(/\s+/, " ")
@@ -215,8 +219,6 @@ private
       [[type, filename, id, content]]
     end
   end
-
-private
 
   def validate_field what, thing
     raise InvalidMessageError, "missing '#{what}' header" if thing.nil?

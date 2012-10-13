@@ -76,7 +76,7 @@ module Heliotrope
 
   class CapabilityCommand < Command
     def exec
-      capa = "CAPABILITY IMAP4REV1 IDLE"
+      capa = "CAPABILITY IMAP4REV1 IDLE UIDPLUS"
       @session.send_data(capa)
       send_tagged_ok
     end
@@ -308,18 +308,17 @@ module Heliotrope
       @message = message
     end
 
-    # only with UIDPLUS. Maybe one day.
-    #def send_tagged_ok_append
-			#uidvalidity = @mail_store.get_mailbox_status(@mailbox_name)[:uidvalidity]
-			#@session.send_tagged_ok(@tag, "[APPENDUID %s %s]", uidvalidity, @response[:uid])
-    #end
+    def send_tagged_ok_append
+			uidvalidity = @mail_store.get_mailbox_status(@mailbox_name)[:uidvalidity]
+			@session.send_tagged_ok(@tag, "[APPENDUID %s %s]", uidvalidity, @response_uid)
+    end
 
     def exec
-      @mail_store.append_mail(@message, @mailbox_name, @flags)
+      @response_uid = @mail_store.append_mail(@message, @mailbox_name, @flags)
       count = @mail_store.get_mailbox_status(@mailbox_name)[:messages]
       @session.push_queued_response(@mailbox_name, "#{count} EXISTS")
       @session.send_queued_responses
-      #send_tagged_ok_append
+      send_tagged_ok_append
       send_tagged_ok
     end
   end
@@ -392,46 +391,61 @@ module Heliotrope
     end
   end
 
-  class AbstractSearchCommand < Command
-    def initialize(query)
-      @query = query
-    end
+  #class AbstractSearchCommand < Command
+    #def initialize(query)
+      #@query = query
+    #end
 
-    def exec
-      mailbox = @session.get_current_mailbox
-      uids = @mail_store.uid_search(@query)
-      result = create_result(mailbox, uids)
-      if result.empty?
-        @session.send_data("SEARCH")
-      else
-        @session.send_data("SEARCH %s", result.join(" "))
-      end
-      @session.send_queued_responses
-      send_tagged_ok
-    end
+    #def exec
+      #result = nil
+      ##mailbox = @session.get_current_mailbox
+      ##uids = mailbox.uid_search(@query)
+      ##result = create_result(mailbox, uids)
+      ##if result.empty?
+        ##@session.send_data("SEARCH")
+      ##else
+        ##@session.send_data("SEARCH %s", result.join(" "))
+      ##end
+      ##@session.send_queued_responses
+      ##send_tagged_ok
+    #end
 
-    private
+    #private
 
-    def create_result(uids)
-      raise SubclassResponsibilityError.new
-    end
-  end
+    #def create_result(uids)
+      #raise SubclassResponsibilityError.new
+    #end
+  #end
 
-  class SearchCommand < AbstractSearchCommand
-    private
+  #class SearchCommand < AbstractSearchCommand
+    #private
 
-    def create_result(mailbox, uids)
-      uids.map{|uid| @mail_store.get_seqno(mailbox, uid)}
-    end
-  end
+    #def create_result(mailbox, uids)
+      #if uids.empty?
+        #return []
+      #else
+        #mails = mailbox.fetch([1 .. -1])
+        ##uid_tbl = uids.inject({}) { |tbl, uid|
+          ##tbl[uid] = true
+          ##tbl
+        ##}
+        ##return mails.inject([]) { |ary, mail|
+          ##if uid_tbl.key?(mail.uid)
+            ##ary.push(mail.seqno)
+          ##end
+          ##ary
+        ##}
+      #end
+    #end
+  #end
 
-  class UidSearchCommand < AbstractSearchCommand
-    private
+  #class UidSearchCommand < AbstractSearchCommand
+    #private
 
-    def create_result(mailbox, uids)
-      return uids
-    end
-  end
+    ##def create_result(mailbox, uids)
+      ##return uids
+    ##end
+  #end
 
   class AbstractFetchCommand < Command
     def initialize(sequence_set, atts)

@@ -1,0 +1,23 @@
+[general]
+accounts = Heliotrope
+ui = ttyui
+
+[Account Heliotrope]
+localrepository = maildir
+remoterepository = imaptrope
+
+
+[Repository maildir]
+type = Maildir
+localfolders = </path/to/maildir>
+realdelete = no
+
+[Repository imaptrope]
+type = IMAP
+remotehost = localhost
+remoteport = 10142
+remoteuser = heliotrope
+remotepass = heliotrope
+ssl = no
+maxconnections = 1
+realdelete = no

@@ -110,3 +110,17 @@ documentation lives in
 https://github.com/rakoo/heliotrope/wiki/A-brief-overview-of-the-heliotrope-api.
 
 You can also reverse-engineer lib/heliotrope-client.rb
+
+IMAP
+----
+
+Heliotrope now features some IMAP functionality, visible first in the
+`imap` branch. The goal is not the full IMAP feature set, but just
+enough features to be usable with OfflineIMAP in both directions.
+
+Usage :
+
+  ruby -Ilib bin/heliotrope-server -d /path/to/data/files --with-imap
+
+As of now (2012-09-21), Heliotrope -> maildir works. Other scenarios are
+not guaranteed.

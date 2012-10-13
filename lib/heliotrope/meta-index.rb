@@ -57,6 +57,7 @@ class MetaIndex
     @debug = false
     reset_timers!
     check_version! if @index
+    init_timestamps!
   end
 
   def close
@@ -94,6 +95,12 @@ class MetaIndex
     else
       disk_version = load_string "version"
       raise VersionMismatchError.new(disk_version, my_version) unless my_version == disk_version
+    end
+  end
+
+  def init_timestamps!
+    (all_labels + MESSAGE_STATE).each do |flag|
+      set_timestamps!(flag) unless timestamp(flag)
     end
   end
 
@@ -145,6 +152,9 @@ class MetaIndex
 
     ## add the labels to the set of all labels we've ever seen
     add_labels_to_labellist! labels
+
+    ## Update timestamps of concerned flags
+    set_timestamps! labels + state
 
     ## congrats, you have a doc and a thread!
     [docid, threadid]
@@ -223,6 +233,7 @@ class MetaIndex
     threadinfo = load_hash "thread/#{threadid}"
     write_thread_message_labels! threadinfo[:structure], new_tlabels
 
+    set_timestamps! old_tlabels + new_tlabels if old_tlabels != new_tlabels
     new_tlabels
   end
 
@@ -243,33 +254,59 @@ class MetaIndex
     @index.teardown_query @query.whistlepig_q if @query # new query, drop old one
     @query = query
     @index.setup_query @query.whistlepig_q
-    @seen_threads = {}
+    @seen_threads = Set.new
+    @seen_message_ids = Set.new
   end
 
   def reset_query!
     @index.teardown_query @query.whistlepig_q
     @index.setup_query @query.whistlepig_q
-    @seen_threads = {}
+    @seen_threads = Set.new
+    @seen_message_ids = Set.new
   end
 
-  def get_some_results num
+  def get_some_results num, type = :threads
     return [] unless @query
 
     startt = Time.now
-    threadids = []
-    until threadids.size >= num
-      index_docid = @index.run_query(@query.whistlepig_q, 1).first
-      break unless index_docid
-      doc_id, thread_id = get_thread_id_from_index_docid index_docid
-      next if @seen_threads[thread_id]
-      @seen_threads[thread_id] = true
-      threadids << thread_id
+    
+    if type == :threads
+
+      threadids = []
+      until threadids.size >= num
+        index_docid = @index.run_query(@query.whistlepig_q, 1).first
+        break unless index_docid
+        doc_id, thread_id = get_thread_id_from_index_docid index_docid
+        next if @seen_threads.include? thread_id
+        @seen_threads << thread_id
+        threadids << thread_id
+      end
+
+      loadt = Time.now
+      results = threadids.map { |id| load_threadinfo id }
+
+    elsif type == :messages
+
+      messages = []
+      until messages.size >= num
+        index_docid = @index.run_query(@query.whistlepig_q, 1).first
+        break unless index_docid
+        doc_id, thread_id = get_thread_id_from_index_docid index_docid
+        tmp_messages = load_thread_messageinfos(thread_id).map(&:first)
+        tmp_messages.each do |tmp_message|
+          next if @seen_message_ids.include?(tmp_message[:message_id]) or tmp_message[:message_id].nil?
+          @seen_message_ids << tmp_message[:message_id]
+          messages << tmp_message
+        end
+      end
+
+      loadt = Time.now
+      results = messages
+
     end
 
-    loadt = Time.now
-    results = threadids.map { |id| load_threadinfo id }
     endt = Time.now
-    #printf "# search %.1fms, load %.1fms\n", 1000 * (loadt - startt), 1000 * (endt - startt)
+    printf "# search %.1fms, load %.1fms\n", 1000 * (loadt - startt), 1000 * (endt - startt)
     results
   end
 
@@ -353,7 +390,46 @@ class MetaIndex
     write_int "s2i/#{store_docid}", index_docid # reidrect store to index
   end
 
-private
+  def labels_count; flags_count(:labels) end
+  def state_count; flags_count(:state) end
+
+  def timestamp(flag); load_int("timestamp/#{flag}") end
+
+  private
+
+  def set_timestamps!(flags)
+    if flags.respond_to? :to_a
+      flags.to_a.flatten
+    else
+      [flags]
+    end.each {|flag| write_int("timestamp/#{flag}", Time.now.to_i)}
+  end
+
+  # Return a hash with keys being the flags (:labels or :state) and
+  # values being the number of messages for that flag
+  def flags_count(type)
+    return {} unless type
+
+    startt = Time.now
+
+    ret_hash = {}
+
+    startkey, endkey = case type
+                       when :labels; ["mlabels/", "mlabels/~"]
+                       when :state; ["state/", "state/~"]
+                       end
+
+    @store.each(:from => startkey, :to => endkey) do |key, value|
+      next unless key.split('/').last.respond_to? :to_i # Verify that we have a number...
+      Marshal.load(value).each do |label| 
+        label = Decoder.in_ruby19_hell? ? label.encode(Encoding::UTF_8) : label
+        ret_hash[label] = (ret_hash[label] || 0) + 1
+      end
+    end
+
+    puts "# #{type} count took #{(Time.now - startt) * 1000} ms"
+    ret_hash
+  end
 
   def get_thread_id_from_index_docid index_docid
     store_docid = load_int("i2s/#{index_docid}")
@@ -385,7 +461,11 @@ private
     new_mstate = (old_mstate - MESSAGE_MUTABLE_STATE) + state
 
     changed = new_mstate != old_mstate
-    write_set key, new_mstate if changed
+
+    if changed
+      write_set key, new_mstate
+      set_timestamps! (old_mstate + new_mstate)
+    end
     [changed, new_mstate]
   end
 
@@ -448,6 +528,7 @@ private
     key = "labellist"
     labellist = load_set key
     labellist_new = labellist + labels.select { |l| is_valid_whistlepig_token? l }
+
     write_set key, labellist_new unless labellist == labellist_new
   end
 
