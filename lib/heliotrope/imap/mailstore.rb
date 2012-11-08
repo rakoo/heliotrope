@@ -280,7 +280,7 @@ module Heliotrope
       if state[:dirty] or @cache[["sequence_set", mailbox_name]].nil?
         # cache is old, update it
         heliotrope_query = format_label_from_imap_to_heliotrope_query(mailbox_name)
-        seq_set = search_messages(heliotrope_query).map{|mail| mail[:message_id]}.sort.unshift("shift")
+        seq_set = search_messages(heliotrope_query).map{|mail| mail[:message_id]}.compact.sort.unshift("shift")
 
         @cache[["timestamp", "sequence_set", mailbox_name]] = state[:timestamp]
         @cache[["sequence_set", mailbox_name]] = seq_set
