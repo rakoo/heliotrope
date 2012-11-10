@@ -74,7 +74,7 @@ module Heliotrope
           begin
             cmd.exec
           rescue Errno::EPIPE => e
-            p e
+            puts e
             break
           rescue StandardError => e
             send_tagged_no(cmd.tag, "%s failed - %s", cmd.name, e)
