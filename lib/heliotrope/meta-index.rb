@@ -287,7 +287,16 @@ class MetaIndex
                 threadids.map { |id| load_threadinfo id }
               when :messages
                 threadids.map do |threadid|
-                  load_thread_messageinfos(threadid).map(&:first).compact
+                  load_thread_messageinfos(threadid).map(&:first).select do |messageinfo|
+                    if @seen_message_ids.include? messageinfo[:message_id]
+                      false
+                    elsif messageinfo[:type] == "fake"
+                      false
+                    else
+                      @seen_message_ids << messageinfo[:message_id]
+                      true
+                    end
+                  end
                 end.flatten
               end
 
