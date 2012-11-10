@@ -337,7 +337,7 @@ class MetaIndex
     @index.setup_query query.whistlepig_q
     begin
       while true
-        docids = @index.run_query query.whistlepig_q, 1000
+        docids = @index.run_query query.whistlepig_q, @index.size
         docids.each do |index_docid|
           doc_id, thread_id = get_thread_id_from_index_docid index_docid
           thread_ids << thread_id
